@@ -1,0 +1,13 @@
+# Logs
+*.log
+
+# Reboot flag
+*.flag
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
