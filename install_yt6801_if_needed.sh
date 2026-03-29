@@ -1,7 +1,8 @@
 #!/bin/bash
-set -e  # exit if any command fails
+set -e
 
-LOGF="./install_yt6801.log"  # log file in repo
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOGF="$SCRIPT_DIR/install_yt6801.log"
 
 echo "=== $(date): Starting YT6801 driver installation if needed ===" >> "$LOGF"
 
@@ -13,37 +14,43 @@ fi
 
 echo "$(date): Module not loaded; proceeding with installation." >> "$LOGF"
 
-# Path to the .deb package
-DEB_PKG="./deb/tuxedo-yt6801_1.0.28-1_all.deb"
+# Auto-detect the most recent .deb package in deb/
+DEB_PKG="$(find "$SCRIPT_DIR/deb" -maxdepth 1 -name '*.deb' -type f | sort -V | tail -n 1)"
 
-if [[ ! -f "$DEB_PKG" ]]; then
-    echo "$(date): ERROR: .deb package not found at $DEB_PKG" >> "$LOGF"
+if [[ -z "$DEB_PKG" || ! -f "$DEB_PKG" ]]; then
+    echo "$(date): ERROR: No .deb package found in $SCRIPT_DIR/deb/" >> "$LOGF"
     exit 1
 fi
 
+echo "$(date): Using package: $DEB_PKG" >> "$LOGF"
+
 # Install the package
-echo "$(date): Installing .deb package..." >> "$LOGF"
-sudo dpkg -i "$DEB_PKG" >> "$LOGF" 2>&1 || echo "$(date): dpkg -i failed, continuing..." >> "$LOGF"
+{
+    echo "$(date): Installing .deb package..."
+    sudo dpkg -i "$DEB_PKG" 2>&1 || echo "$(date): dpkg -i failed, continuing..."
 
-# Regenerate module dependencies
-echo "$(date): Running depmod..." >> "$LOGF"
-sudo depmod >> "$LOGF" 2>&1
+    # Regenerate module dependencies
+    echo "$(date): Running depmod..."
+    sudo depmod 2>&1
 
-# Verify module
-echo "$(date): Checking lsmod..." >> "$LOGF"
-lsmod | grep yt6801 >> "$LOGF" || true
+    # Verify module
+    echo "$(date): Checking lsmod..."
+    lsmod | grep yt6801 || true
+} >> "$LOGF"
 
 # Add module to /etc/modules if not present
 if ! grep -qxF 'yt6801' /etc/modules; then
     echo "$(date): Adding 'yt6801' to /etc/modules" >> "$LOGF"
-    echo 'yt6801' | sudo tee -a /etc/modules >> "$LOGF"
+    echo 'yt6801' | sudo tee -a /etc/modules >> /dev/null
 else
     echo "$(date): 'yt6801' already present in /etc/modules" >> "$LOGF"
 fi
 
 # Second call to depmod just in case
-echo "$(date): Second depmod call..." >> "$LOGF"
-sudo depmod >> "$LOGF" 2>&1
+{
+    echo "$(date): Second depmod call..."
+    sudo depmod 2>&1
+} >> "$LOGF"
 
 echo "$(date): Installation completed." >> "$LOGF"
 exit 0
