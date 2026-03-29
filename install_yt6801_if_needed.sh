@@ -25,28 +25,32 @@ fi
 echo "$(date): Using package: $DEB_PKG" >> "$LOGF"
 
 # Install the package
-echo "$(date): Installing .deb package..." >> "$LOGF"
-sudo dpkg -i "$DEB_PKG" >> "$LOGF" 2>&1 || echo "$(date): dpkg -i failed, continuing..." >> "$LOGF"
+{
+    echo "$(date): Installing .deb package..."
+    sudo dpkg -i "$DEB_PKG" 2>&1 || echo "$(date): dpkg -i failed, continuing..."
 
-# Regenerate module dependencies
-echo "$(date): Running depmod..." >> "$LOGF"
-sudo depmod >> "$LOGF" 2>&1
+    # Regenerate module dependencies
+    echo "$(date): Running depmod..."
+    sudo depmod 2>&1
 
-# Verify module
-echo "$(date): Checking lsmod..." >> "$LOGF"
-lsmod | grep yt6801 >> "$LOGF" || true
+    # Verify module
+    echo "$(date): Checking lsmod..."
+    lsmod | grep yt6801 || true
+} >> "$LOGF"
 
 # Add module to /etc/modules if not present
 if ! grep -qxF 'yt6801' /etc/modules; then
     echo "$(date): Adding 'yt6801' to /etc/modules" >> "$LOGF"
-    echo 'yt6801' | sudo tee -a /etc/modules >> "$LOGF"
+    echo 'yt6801' | sudo tee -a /etc/modules >> /dev/null
 else
     echo "$(date): 'yt6801' already present in /etc/modules" >> "$LOGF"
 fi
 
 # Second call to depmod just in case
-echo "$(date): Second depmod call..." >> "$LOGF"
-sudo depmod >> "$LOGF" 2>&1
+{
+    echo "$(date): Second depmod call..."
+    sudo depmod 2>&1
+} >> "$LOGF"
 
 echo "$(date): Installation completed." >> "$LOGF"
 exit 0
