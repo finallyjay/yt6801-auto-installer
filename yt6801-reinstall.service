@@ -1,17 +1,12 @@
 [Unit]
 Description=Install or reinstall YT6801 driver if not loaded
 After=network-pre.target
-ConditionPathExists=./install_yt6801_if_needed.sh
 
 [Service]
 Type=oneshot
-# Execute the main installation script
-ExecStart=./install_yt6801_if_needed.sh
-
-# Check module status and reboot if necessary
-ExecStartPost=./check_yt6801_and_reboot.sh
-
-# Consider service active after completion
+WorkingDirectory=/opt/yt6801-auto-installer
+ExecStart=/opt/yt6801-auto-installer/install_yt6801_if_needed.sh
+ExecStartPost=/opt/yt6801-auto-installer/check_yt6801_and_reboot.sh
 RemainAfterExit=true
 
 [Install]
