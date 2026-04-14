@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/finallyjay/yt6801-auto-installer/security/advisories/new
+    about: Please report security issues privately via GitHub advisories — do not open a public issue.
+  - name: Upstream YT6801 driver issues
+    url: https://www.tuxedocomputers.com/
+    about: Bugs in the upstream Motorcomm/Tuxedo driver should be reported to the vendor.
