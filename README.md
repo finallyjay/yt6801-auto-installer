@@ -44,7 +44,7 @@ yt6801-auto-installer/
 ## Quick Install
 
 ```bash
-git clone https://github.com/<your-user>/yt6801-auto-installer.git
+git clone https://github.com/finallyjay/yt6801-auto-installer.git
 cd yt6801-auto-installer
 sudo bash setup.sh
 ```
