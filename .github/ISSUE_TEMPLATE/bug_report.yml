@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a problem with the installer, the systemd service, or the driver packaging
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the
+        fields below so we can reproduce and fix the issue quickly.
+
+        Before submitting, please search existing issues to avoid duplicates.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: After rebooting, the yt6801 module is not loaded and the service exits with...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, numbered set of steps.
+      placeholder: |
+        1. Run `sudo bash setup.sh`
+        2. Reboot
+        3. Run `lsmod | grep yt6801`
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      placeholder: Ubuntu 24.04 LTS
+    validations:
+      required: true
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel version
+      description: Output of `uname -r`
+      placeholder: 6.8.0-40-generic
+    validations:
+      required: true
+  - type: input
+    id: driver-version
+    attributes:
+      label: Driver package version
+      description: The `.deb` filename under `deb/` that was installed
+      placeholder: tuxedo-yt6801_1.0.28-1_all.deb
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Please include the relevant output from:
+        - `/opt/yt6801-auto-installer/install_yt6801.log`
+        - `journalctl -u yt6801-reinstall.service`
+        - `dmesg | grep -i yt6801`
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I have searched existing issues for duplicates.
+          required: true
+        - label: I have read the README and Troubleshooting section.
+          required: true
