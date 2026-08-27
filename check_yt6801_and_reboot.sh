@@ -12,9 +12,16 @@ if ! lsmod | grep -q yt6801; then
     if [ -f "$FLAG" ]; then
         echo "$(date): Module still not loaded; reboot already done once. Skipping reboot." >>"$LOGF"
     else
-        echo "$(date): Module not loaded; rebooting required." >>"$LOGF"
-        touch "$FLAG"
-        /usr/bin/systemctl reboot || true
+        echo "$(date): Module not loaded; attempting modprobe yt6801 before considering reboot." >>"$LOGF"
+        modprobe yt6801 || true
+        if lsmod | awk '{print $1}' | grep -qx yt6801; then
+            echo "$(date): Module loaded successfully after modprobe; no reboot needed." >>"$LOGF"
+        else
+            echo "$(date): Module still not loaded after modprobe; rebooting required." >>"$LOGF"
+            touch "$FLAG"
+            sync
+            /usr/bin/systemctl reboot || true
+        fi
     fi
 else
     echo "$(date): Module loaded successfully." >>"$LOGF"
