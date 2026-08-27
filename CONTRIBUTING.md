@@ -10,7 +10,7 @@ By participating in this project you agree to abide by the
 
 - **Report a bug** — open an issue using the bug report template and include
   your distribution, kernel version, and the relevant log output from
-  `journalctl -u yt6801-reinstall.service`.
+  `sudo journalctl -u yt6801-reinstall.service`.
 - **Suggest an enhancement** — open an issue using the feature request
   template and describe the use case before the implementation.
 - **Submit a pull request** — fix a bug, improve documentation, or add

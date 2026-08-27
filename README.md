@@ -114,7 +114,7 @@ Both scripts run under systemd and write their output to stdout/stderr, which th
 `yt6801-reinstall.service` unit sends to the journal. View the logs with:
 
 ```bash
-journalctl -u yt6801-reinstall.service
+sudo journalctl -u yt6801-reinstall.service
 ```
 
 ## Troubleshooting
@@ -134,7 +134,7 @@ dmesg | grep -i yt6801
 **Service not running:**
 ```bash
 sudo systemctl status yt6801-reinstall.service
-journalctl -u yt6801-reinstall.service
+sudo journalctl -u yt6801-reinstall.service
 ```
 
 **Driver not surviving kernel updates:**
