@@ -7,10 +7,17 @@ PKG_NAME="tuxedo-yt6801"
 
 echo "=== $(date): Starting YT6801 driver installation if needed ===" >> "$LOGF"
 
-# Auto-detect the most recent .deb package in deb/. Needed both to install and,
-# when the module is already loaded, to check whether a newer version is
-# available so updates placed in deb/ are not silently skipped.
-DEB_PKG="$(find "$SCRIPT_DIR/deb" -maxdepth 1 -name '*.deb' -type f | sort -V | tail -n 1)"
+# Auto-detect the most recent tuxedo-yt6801 .deb package in deb/. Needed both
+# to install and, when the module is already loaded, to check whether a newer
+# version is available so updates placed in deb/ are not silently skipped.
+# Filter candidates by their Debian package name (not just filename) so an
+# unrelated .deb dropped in deb/ cannot be mistaken for a driver update.
+DEB_PKG=""
+while IFS= read -r candidate; do
+    if [[ "$(dpkg-deb -f "$candidate" Package 2>/dev/null)" == "$PKG_NAME" ]]; then
+        DEB_PKG="$candidate"
+    fi
+done < <(find "$SCRIPT_DIR/deb" -maxdepth 1 -name '*.deb' -type f | sort -V)
 
 # Check if the module is already loaded
 if lsmod | grep -q yt6801; then
