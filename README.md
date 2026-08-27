@@ -11,7 +11,20 @@ Automatically installs and maintains the YT6801 (Motorcomm) network driver on Li
 - Ubuntu 24.04 (or compatible Debian-based distribution)
 - Root/sudo access
 - `dpkg` and `systemd`
+- `dkms` (the driver package is a DKMS module: it declares `Depends: dkms (>= 2.1.0.0)`)
 - Linux kernel headers installed (`linux-headers-$(uname -r)`)
+
+> **Note:** If you install the `.deb` manually, prefer `sudo apt-get install -y ./deb/tuxedo-yt6801_1.0.28-1_all.deb` (or, if `deb/` holds more than one version, the newest one — mirroring the `sort -V | tail -n 1` selection `install_yt6801_if_needed.sh` uses), which resolves and installs `dkms` and other dependencies automatically, over a bare `sudo dpkg -i ...`, which will fail (or leave the package unconfigured) if `dkms` isn't already installed.
+
+## Driver Package Provenance
+
+The bundled package, `deb/tuxedo-yt6801_1.0.28-1_all.deb`, is redistributed unmodified from [TUXEDO Computers GmbH](https://www.tuxedocomputers.com/) (`tux@tuxedocomputers.com`), the upstream maintainer of the `tuxedo-yt6801` DKMS driver for the Motorcomm YT6801 controller.
+
+Verify its integrity before installing:
+
+```bash
+echo "20f3626790956d14806934b10358894d25deeaa8c5cf63b56871c2d38cad3db7  deb/tuxedo-yt6801_1.0.28-1_all.deb" | sha256sum -c -
+```
 
 ## Repository Structure
 
@@ -56,11 +69,13 @@ This will:
 
 ## Manual Installation
 
-If you prefer to install step by step:
+If you prefer to install step by step (this mirrors what `setup.sh` does): the service's `ExecStart`/`ExecStartPost` and `WorkingDirectory` point at `/opt/yt6801-auto-installer/`, so the scripts and the `deb/` directory must be copied there first, not just the unit file.
 
 ```bash
-chmod +x install_yt6801_if_needed.sh check_yt6801_and_reboot.sh
-sudo cp yt6801-reinstall.service /etc/systemd/system/
+sudo mkdir -p /opt/yt6801-auto-installer
+sudo cp -r deb install_yt6801_if_needed.sh check_yt6801_and_reboot.sh yt6801-reinstall.service /opt/yt6801-auto-installer/
+sudo chmod +x /opt/yt6801-auto-installer/install_yt6801_if_needed.sh /opt/yt6801-auto-installer/check_yt6801_and_reboot.sh
+sudo cp /opt/yt6801-auto-installer/yt6801-reinstall.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable yt6801-reinstall.service
 ```
