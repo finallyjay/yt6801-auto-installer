@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# This script is launched by systemd (as root) via ExecStartPost, but can
+# also be run manually. It needs root to load kernel modules and trigger a
+# reboot, so require it up front rather than failing partway through.
+# YT6801_SKIP_ROOT_CHECK is set only by the bats test suite (test/smoke.bats)
+# to exercise this script's logic without requiring the test runner to be root.
+if [ "$(id -u)" -ne 0 ] && [ -z "${YT6801_SKIP_ROOT_CHECK:-}" ]; then
+    echo "This script must be run as root (use: sudo ./check_yt6801_and_reboot.sh)." >&2
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOGF="$SCRIPT_DIR/install_yt6801.log"
 FLAG="$SCRIPT_DIR/yt6801_reboot_once.flag"

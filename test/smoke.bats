@@ -10,6 +10,15 @@
 # arguments to $CALLS_LOG, so tests assert exactly what was (and was not)
 # invoked instead of trusting exit codes alone.
 #
+# All scripts under test now refuse to run unless invoked as root (they no
+# longer shell out to `sudo` internally - see setup.sh/uninstall.sh for the
+# rationale). The bats test runner itself is not root, so `setup()` exports
+# YT6801_SKIP_ROOT_CHECK=1, a switch every script's root check honors, purely
+# to let these tests exercise the scripts' logic without requiring the CI
+# runner to run as root. It is not documented in the README/CLI usage on
+# purpose: it is a test-only escape hatch, not a supported way to bypass the
+# root requirement.
+#
 # Known, documented limitation: check_yt6801_and_reboot.sh invokes the
 # reboot command by its absolute path (`/usr/bin/systemctl reboot`), not via
 # a PATH lookup. That is intentional hardening in the script (it avoids a
@@ -30,11 +39,12 @@ setup() {
     mkdir -p "$STUBDIR"
     : >"$CALLS_LOG"
 
-    for cmd in dpkg dpkg-query dpkg-deb systemctl modprobe lsmod sync sudo; do
+    for cmd in dpkg dpkg-query dpkg-deb depmod systemctl modprobe lsmod sync sudo; do
         write_stub "$cmd" "exit 0"
     done
 
     export PATH="$STUBDIR:$PATH"
+    export YT6801_SKIP_ROOT_CHECK=1
 }
 
 teardown() {
@@ -73,6 +83,17 @@ sandbox_copy() {
 # calls_of <name> - number of times stub <name> was invoked.
 calls_of() {
     grep -c "^$1 " "$CALLS_LOG" || true
+}
+
+# assert_no_privileged_calls - fails if any stubbed privileged command
+# (dpkg, dpkg-query, dpkg-deb, depmod, modprobe, lsmod, systemctl, sync,
+# sudo) was invoked. Used to prove the root check exits before any of them
+# could run.
+assert_no_privileged_calls() {
+    local cmd
+    for cmd in dpkg dpkg-query dpkg-deb depmod modprobe lsmod systemctl sync sudo; do
+        [ "$(calls_of "$cmd")" -eq 0 ]
+    done
 }
 
 @test "install_yt6801_if_needed.sh fails cleanly when no .deb package is present" {
@@ -120,4 +141,38 @@ calls_of() {
     [ "$(calls_of systemctl)" -eq 0 ]
     grep -q "reboot already done once" "$script_dir/install_yt6801.log"
     [ -f "$script_dir/yt6801_reboot_once.flag" ]
+}
+
+@test "install_yt6801_if_needed.sh refuses to run as non-root" {
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "test runner itself is root; cannot exercise the non-root rejection path"
+    fi
+    unset YT6801_SKIP_ROOT_CHECK
+
+    local script
+    script="$(sandbox_copy install_yt6801_if_needed.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be run as root"* ]]
+
+    # The script must exit before touching anything privileged.
+    assert_no_privileged_calls
+}
+
+@test "check_yt6801_and_reboot.sh refuses to run as non-root" {
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "test runner itself is root; cannot exercise the non-root rejection path"
+    fi
+    unset YT6801_SKIP_ROOT_CHECK
+
+    local script
+    script="$(sandbox_copy check_yt6801_and_reboot.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be run as root"* ]]
+    assert_no_privileged_calls
 }
