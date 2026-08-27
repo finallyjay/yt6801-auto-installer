@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # This script is launched by systemd (as root) via ExecStartPost, but can
 # also be run manually. It needs root to load kernel modules and trigger a
