@@ -3,19 +3,50 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOGF="$SCRIPT_DIR/install_yt6801.log"
+PKG_NAME="tuxedo-yt6801"
 
 echo "=== $(date): Starting YT6801 driver installation if needed ===" >> "$LOGF"
 
+# Auto-detect the tuxedo-yt6801 .deb package with the highest Debian version in
+# deb/. Needed both to install and, when the module is already loaded, to check
+# whether a newer version is available so updates placed in deb/ are not
+# silently skipped. Candidates are filtered by their Debian package name (not
+# just filename) so an unrelated .deb dropped in deb/ cannot be mistaken for a
+# driver update, and compared with dpkg --compare-versions rather than
+# `sort -V`, since GNU sort does not follow Debian's version ordering rules
+# (epochs, tildes, etc.).
+DEB_PKG=""
+DEB_VERSION=""
+while IFS= read -r candidate; do
+    candidate_package="$(dpkg-deb -f "$candidate" Package 2>/dev/null)" || continue
+    [[ "$candidate_package" == "$PKG_NAME" ]] || continue
+
+    candidate_version="$(dpkg-deb -f "$candidate" Version 2>/dev/null)" || continue
+
+    if [[ -z "$DEB_VERSION" ]] || dpkg --compare-versions "$candidate_version" gt "$DEB_VERSION"; then
+        DEB_PKG="$candidate"
+        DEB_VERSION="$candidate_version"
+    fi
+done < <(find "$SCRIPT_DIR/deb" -maxdepth 1 -name '*.deb' -type f)
+
 # Check if the module is already loaded
 if lsmod | grep -q yt6801; then
-    echo "$(date): Module already loaded; nothing to do." >> "$LOGF"
-    exit 0
+    if [[ -n "$DEB_PKG" && -f "$DEB_PKG" ]]; then
+        INSTALLED_VERSION="$(dpkg-query -W -f='${Version}' "$PKG_NAME" 2>/dev/null)" || INSTALLED_VERSION=""
+
+        if [[ -z "$INSTALLED_VERSION" ]] || dpkg --compare-versions "$DEB_VERSION" gt "$INSTALLED_VERSION"; then
+            echo "$(date): Module loaded but a newer package is available (available: $DEB_VERSION, installed: ${INSTALLED_VERSION:-none}); proceeding with update." >> "$LOGF"
+        else
+            echo "$(date): Module already loaded and installed version ($INSTALLED_VERSION) is up to date with available package ($DEB_VERSION); nothing to do." >> "$LOGF"
+            exit 0
+        fi
+    else
+        echo "$(date): Module already loaded and no .deb package found in $SCRIPT_DIR/deb/; nothing to do." >> "$LOGF"
+        exit 0
+    fi
+else
+    echo "$(date): Module not loaded; proceeding with installation." >> "$LOGF"
 fi
-
-echo "$(date): Module not loaded; proceeding with installation." >> "$LOGF"
-
-# Auto-detect the most recent .deb package in deb/
-DEB_PKG="$(find "$SCRIPT_DIR/deb" -maxdepth 1 -name '*.deb' -type f | sort -V | tail -n 1)"
 
 if [[ -z "$DEB_PKG" || ! -f "$DEB_PKG" ]]; then
     echo "$(date): ERROR: No .deb package found in $SCRIPT_DIR/deb/" >> "$LOGF"
