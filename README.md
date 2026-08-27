@@ -14,7 +14,7 @@ Automatically installs and maintains the YT6801 (Motorcomm) network driver on Li
 - `dkms` (the driver package is a DKMS module: it declares `Depends: dkms (>= 2.1.0.0)`)
 - Linux kernel headers installed (`linux-headers-$(uname -r)`)
 
-> **Note:** If you install the `.deb` manually, prefer `sudo apt-get install -y ./deb/tuxedo-yt6801_*.deb`, which resolves and installs `dkms` and other dependencies automatically, over a bare `sudo dpkg -i ...`, which will fail (or leave the package unconfigured) if `dkms` isn't already installed.
+> **Note:** If you install the `.deb` manually, prefer `sudo apt-get install -y ./deb/tuxedo-yt6801_1.0.28-1_all.deb` (or, if `deb/` holds more than one version, the newest one — mirroring the `sort -V | tail -n 1` selection `install_yt6801_if_needed.sh` uses), which resolves and installs `dkms` and other dependencies automatically, over a bare `sudo dpkg -i ...`, which will fail (or leave the package unconfigured) if `dkms` isn't already installed.
 
 ## Driver Package Provenance
 
