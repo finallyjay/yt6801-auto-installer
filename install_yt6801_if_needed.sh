@@ -27,7 +27,10 @@ echo "$(date): Using package: $DEB_PKG" >> "$LOGF"
 # Install the package
 {
     echo "$(date): Installing .deb package..."
-    sudo dpkg -i "$DEB_PKG" 2>&1 || echo "$(date): dpkg -i failed, continuing..."
+    if ! sudo dpkg -i "$DEB_PKG" 2>&1; then
+        echo "$(date): ERROR: dpkg -i failed to install $DEB_PKG"
+        exit 1
+    fi
 
     # Regenerate module dependencies
     echo "$(date): Running depmod..."
@@ -51,6 +54,12 @@ fi
     echo "$(date): Second depmod call..."
     sudo depmod 2>&1
 } >> "$LOGF"
+
+# Verify the module can actually be loaded before declaring success
+if ! sudo modprobe yt6801 2>>"$LOGF"; then
+    echo "$(date): ERROR: modprobe yt6801 failed; installation did not succeed." >> "$LOGF"
+    exit 1
+fi
 
 echo "$(date): Installation completed." >> "$LOGF"
 exit 0
