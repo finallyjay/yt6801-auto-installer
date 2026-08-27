@@ -131,3 +131,41 @@ calls_of() {
     grep -q "reboot already done once" "$script_dir/install_yt6801.log"
     [ -f "$script_dir/yt6801_reboot_once.flag" ]
 }
+
+@test "install_yt6801_if_needed.sh refuses to run as non-root" {
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "test runner itself is root; cannot exercise the non-root rejection path"
+    fi
+    unset YT6801_SKIP_ROOT_CHECK
+
+    local script
+    script="$(sandbox_copy install_yt6801_if_needed.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be run as root"* ]]
+
+    # The script must exit before touching anything privileged.
+    [ "$(calls_of dpkg)" -eq 0 ]
+    [ "$(calls_of dpkg-deb)" -eq 0 ]
+    [ "$(calls_of depmod)" -eq 0 ]
+    [ "$(calls_of modprobe)" -eq 0 ]
+}
+
+@test "check_yt6801_and_reboot.sh refuses to run as non-root" {
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "test runner itself is root; cannot exercise the non-root rejection path"
+    fi
+    unset YT6801_SKIP_ROOT_CHECK
+
+    local script
+    script="$(sandbox_copy check_yt6801_and_reboot.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be run as root"* ]]
+    [ "$(calls_of systemctl)" -eq 0 ]
+    [ "$(calls_of modprobe)" -eq 0 ]
+}
