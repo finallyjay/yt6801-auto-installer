@@ -21,8 +21,11 @@ fi
 if [ -f "/etc/systemd/system/$SERVICE_NAME" ]; then
     echo "==> Removing service file..."
     sudo rm -f "/etc/systemd/system/$SERVICE_NAME"
-    sudo systemctl daemon-reload
 fi
+
+# Reload systemd and clear any failed-state entry left behind by the unit
+sudo systemctl daemon-reload
+sudo systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
 
 # Remove installation directory
 if [ -d "$INSTALL_DIR" ]; then
