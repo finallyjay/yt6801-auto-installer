@@ -12,29 +12,28 @@ if [ "$(id -u)" -ne 0 ] && [ -z "${YT6801_SKIP_ROOT_CHECK:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LOGF="$SCRIPT_DIR/install_yt6801.log"
 FLAG="$SCRIPT_DIR/yt6801_reboot_once.flag"
 
-echo "=== $(date): Checking YT6801 module status ===" >>"$LOGF"
+echo "=== $(date): Checking YT6801 module status ==="
 
 # Check if the module is loaded
 if ! lsmod | grep -q yt6801; then
     if [ -f "$FLAG" ]; then
-        echo "$(date): Module still not loaded; reboot already done once. Skipping reboot." >>"$LOGF"
+        echo "$(date): Module still not loaded; reboot already done once. Skipping reboot."
     else
-        echo "$(date): Module not loaded; attempting modprobe yt6801 before considering reboot." >>"$LOGF"
+        echo "$(date): Module not loaded; attempting modprobe yt6801 before considering reboot."
         modprobe yt6801 || true
         if lsmod | awk '{print $1}' | grep -qx yt6801; then
-            echo "$(date): Module loaded successfully after modprobe; no reboot needed." >>"$LOGF"
+            echo "$(date): Module loaded successfully after modprobe; no reboot needed."
         else
-            echo "$(date): Module still not loaded after modprobe; rebooting required." >>"$LOGF"
+            echo "$(date): Module still not loaded after modprobe; rebooting required."
             touch "$FLAG"
             sync
             /usr/bin/systemctl reboot || true
         fi
     fi
 else
-    echo "$(date): Module loaded successfully." >>"$LOGF"
+    echo "$(date): Module loaded successfully."
     [ -f "$FLAG" ] && rm -f "$FLAG"
 fi
 

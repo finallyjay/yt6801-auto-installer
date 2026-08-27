@@ -110,10 +110,11 @@ The install script automatically picks the latest `.deb` file (sorted by version
 
 ## Logs
 
-All activity is logged to `/opt/yt6801-auto-installer/install_yt6801.log`:
+Both scripts run under systemd and write their output to stdout/stderr, which the
+`yt6801-reinstall.service` unit sends to the journal. View the logs with:
 
 ```bash
-cat /opt/yt6801-auto-installer/install_yt6801.log
+sudo journalctl -u yt6801-reinstall.service
 ```
 
 ## Troubleshooting
@@ -133,7 +134,7 @@ dmesg | grep -i yt6801
 **Service not running:**
 ```bash
 sudo systemctl status yt6801-reinstall.service
-journalctl -u yt6801-reinstall.service
+sudo journalctl -u yt6801-reinstall.service
 ```
 
 **Driver not surviving kernel updates:**

@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Bump `actions/checkout` from 4 to 6 (#10)
 - Bump `actions/checkout` from 6 to 7 (#12)
+- Log to stdout/stderr instead of `install_yt6801.log`: since both scripts run under `yt6801-reinstall.service`, which already sends `StandardOutput`/`StandardError` to the journal, output now goes straight to `journalctl -u yt6801-reinstall.service` instead of an unrotated file in `/opt`
 
 ### Fixed
 - Fix clone URL placeholder in README (#4)

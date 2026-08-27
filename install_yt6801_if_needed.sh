@@ -13,10 +13,9 @@ if [ "$(id -u)" -ne 0 ] && [ -z "${YT6801_SKIP_ROOT_CHECK:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LOGF="$SCRIPT_DIR/install_yt6801.log"
 PKG_NAME="tuxedo-yt6801"
 
-echo "=== $(date): Starting YT6801 driver installation if needed ===" >>"$LOGF"
+echo "=== $(date): Starting YT6801 driver installation if needed ==="
 
 # Auto-detect the tuxedo-yt6801 .deb package with the highest Debian version in
 # deb/. Needed both to install and, when the module is already loaded, to check
@@ -46,62 +45,58 @@ if lsmod | grep -q yt6801; then
         INSTALLED_VERSION="$(dpkg-query -W -f='${Version}' "$PKG_NAME" 2>/dev/null)" || INSTALLED_VERSION=""
 
         if [[ -z "$INSTALLED_VERSION" ]] || dpkg --compare-versions "$DEB_VERSION" gt "$INSTALLED_VERSION"; then
-            echo "$(date): Module loaded but a newer package is available (available: $DEB_VERSION, installed: ${INSTALLED_VERSION:-none}); proceeding with update." >>"$LOGF"
+            echo "$(date): Module loaded but a newer package is available (available: $DEB_VERSION, installed: ${INSTALLED_VERSION:-none}); proceeding with update."
         else
-            echo "$(date): Module already loaded and installed version ($INSTALLED_VERSION) is up to date with available package ($DEB_VERSION); nothing to do." >>"$LOGF"
+            echo "$(date): Module already loaded and installed version ($INSTALLED_VERSION) is up to date with available package ($DEB_VERSION); nothing to do."
             exit 0
         fi
     else
-        echo "$(date): Module already loaded and no .deb package found in $SCRIPT_DIR/deb/; nothing to do." >>"$LOGF"
+        echo "$(date): Module already loaded and no .deb package found in $SCRIPT_DIR/deb/; nothing to do."
         exit 0
     fi
 else
-    echo "$(date): Module not loaded; proceeding with installation." >>"$LOGF"
+    echo "$(date): Module not loaded; proceeding with installation."
 fi
 
 if [[ -z "$DEB_PKG" || ! -f "$DEB_PKG" ]]; then
-    echo "$(date): ERROR: No .deb package found in $SCRIPT_DIR/deb/" >>"$LOGF"
+    echo "$(date): ERROR: No .deb package found in $SCRIPT_DIR/deb/"
     exit 1
 fi
 
-echo "$(date): Using package: $DEB_PKG" >>"$LOGF"
+echo "$(date): Using package: $DEB_PKG"
 
 # Install the package
-{
-    echo "$(date): Installing .deb package..."
-    if ! dpkg -i "$DEB_PKG" 2>&1; then
-        echo "$(date): ERROR: dpkg -i failed to install $DEB_PKG"
-        exit 1
-    fi
+echo "$(date): Installing .deb package..."
+if ! dpkg -i "$DEB_PKG" 2>&1; then
+    echo "$(date): ERROR: dpkg -i failed to install $DEB_PKG"
+    exit 1
+fi
 
-    # Regenerate module dependencies
-    echo "$(date): Running depmod..."
-    depmod 2>&1
+# Regenerate module dependencies
+echo "$(date): Running depmod..."
+depmod 2>&1
 
-    # Verify module
-    echo "$(date): Checking lsmod..."
-    lsmod | grep yt6801 || true
-} >>"$LOGF"
+# Verify module
+echo "$(date): Checking lsmod..."
+lsmod | grep yt6801 || true
 
 # Add module to /etc/modules if not present
 if ! grep -qxF 'yt6801' /etc/modules; then
-    echo "$(date): Adding 'yt6801' to /etc/modules" >>"$LOGF"
+    echo "$(date): Adding 'yt6801' to /etc/modules"
     echo 'yt6801' >>/etc/modules
 else
-    echo "$(date): 'yt6801' already present in /etc/modules" >>"$LOGF"
+    echo "$(date): 'yt6801' already present in /etc/modules"
 fi
 
 # Second call to depmod just in case
-{
-    echo "$(date): Second depmod call..."
-    depmod 2>&1
-} >>"$LOGF"
+echo "$(date): Second depmod call..."
+depmod 2>&1
 
 # Verify the module can actually be loaded before declaring success
-if ! modprobe yt6801 2>>"$LOGF"; then
-    echo "$(date): ERROR: modprobe yt6801 failed; installation did not succeed." >>"$LOGF"
+if ! modprobe yt6801 2>&1; then
+    echo "$(date): ERROR: modprobe yt6801 failed; installation did not succeed."
     exit 1
 fi
 
-echo "$(date): Installation completed." >>"$LOGF"
+echo "$(date): Installation completed."
 exit 0
