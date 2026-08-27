@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # This script is normally launched by systemd (as root) or via setup.sh's
 # service, but can also be run manually. Either way it needs root to run

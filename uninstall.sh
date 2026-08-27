@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Require root up front instead of prompting for `sudo` command-by-command:
 # a mid-script sudo prompt the user cancels (or a stale credential cache

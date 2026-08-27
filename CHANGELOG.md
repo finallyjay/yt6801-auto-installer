@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Compare the installed driver version against the `.deb` in `deb/` before skipping install when the module is already loaded, so newer packages are no longer ignored (#17)
 - Reset the `yt6801-reinstall.service` failed state during `uninstall.sh` so a stale entry no longer lingers in `systemctl --failed` (#18)
 - Require all four scripts to be run as root and drop internal `sudo` calls, so `setup.sh`/`uninstall.sh` can no longer be left in a half-applied state by a cancelled or expired `sudo` prompt partway through
+- Run all four scripts under `set -euo pipefail` instead of `set -e`, so an unset variable or a failed command upstream of a pipe is no longer silently ignored
 
 ### Security
 - Add least-privilege `permissions:` to the ShellCheck workflow, resolving a GitHub code scanning alert (#11)
