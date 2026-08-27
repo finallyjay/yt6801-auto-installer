@@ -39,3 +39,17 @@ jobs:
           sudo mv shfmt /usr/local/bin/shfmt
       - name: Check formatting (shfmt -d)
         run: shfmt -i 4 -d *.sh
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Bats
+        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # 4.0.0
+        with:
+          support-install: false
+          assert-install: false
+          detik-install: false
+          file-install: false
+      - name: Run smoke tests
+        run: bats test/
