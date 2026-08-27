@@ -68,8 +68,8 @@ write_stub() {
 
 # sandbox_copy <script-name>
 # Copies a script from the repo root into its own isolated directory (with
-# an empty deb/ subdir), so the script's SCRIPT_DIR-relative log/flag files
-# never touch the real repo and an install run sees no .deb packages unless
+# an empty deb/ subdir), so the script's SCRIPT_DIR-relative flag file
+# never touches the real repo and an install run sees no .deb packages unless
 # a test puts one there. Prints the path to the copy.
 sandbox_copy() {
     local script="$1"
@@ -99,15 +99,13 @@ assert_no_privileged_calls() {
 @test "install_yt6801_if_needed.sh fails cleanly when no .deb package is present" {
     write_stub lsmod "exit 0" # module not loaded, no matching output
 
-    local script script_dir
+    local script
     script="$(sandbox_copy install_yt6801_if_needed.sh)"
-    script_dir="$(dirname "$script")"
 
     run "$script"
 
     [ "$status" -ne 0 ]
-    [ -f "$script_dir/install_yt6801.log" ]
-    grep -q "ERROR: No .deb package found" "$script_dir/install_yt6801.log"
+    [[ "$output" == *"ERROR: No .deb package found"* ]]
 
     # Nothing privileged was ever attempted.
     [ "$(calls_of dpkg)" -eq 0 ]
@@ -139,7 +137,7 @@ assert_no_privileged_calls() {
 
     [ "$status" -eq 0 ]
     [ "$(calls_of systemctl)" -eq 0 ]
-    grep -q "reboot already done once" "$script_dir/install_yt6801.log"
+    [[ "$output" == *"reboot already done once"* ]]
     [ -f "$script_dir/yt6801_reboot_once.flag" ]
 }
 

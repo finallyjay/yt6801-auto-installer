@@ -38,8 +38,8 @@ A good report contains:
 - Exact steps to reproduce
 - The observed impact (e.g., privilege escalation, persistence, data
   exposure)
-- Any logs from `/opt/yt6801-auto-installer/install_yt6801.log` or
-  `journalctl -u yt6801-reinstall.service` that help confirm the issue
+- Any logs from `journalctl -u yt6801-reinstall.service` that help confirm
+  the issue
 
 ## What to expect
 

@@ -110,10 +110,11 @@ The install script automatically picks the latest `.deb` file (sorted by version
 
 ## Logs
 
-All activity is logged to `/opt/yt6801-auto-installer/install_yt6801.log`:
+Both scripts run under systemd and write their output to stdout/stderr, which the
+`yt6801-reinstall.service` unit sends to the journal. View the logs with:
 
 ```bash
-cat /opt/yt6801-auto-installer/install_yt6801.log
+journalctl -u yt6801-reinstall.service
 ```
 
 ## Troubleshooting
