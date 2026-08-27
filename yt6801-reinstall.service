@@ -1,13 +1,27 @@
 [Unit]
 Description=Install or reinstall YT6801 driver if not loaded
-After=network-pre.target
+# The driver must be ready before networking comes up, not merely started
+# "after" a passive target. Order ourselves before network-pre.target and
+# pull it in so this unit actually gates network bring-up.
+Before=network-pre.target
+Wants=network-pre.target
 
 [Service]
 Type=oneshot
+# DKMS module builds can take a long time on slow/embedded hardware; the
+# default 90s start timeout can kill the build mid-way during boot.
+TimeoutStartSec=15min
 WorkingDirectory=/opt/yt6801-auto-installer
 ExecStart=/opt/yt6801-auto-installer/install_yt6801_if_needed.sh
 ExecStartPost=/opt/yt6801-auto-installer/check_yt6801_and_reboot.sh
 RemainAfterExit=true
+# Minimal sandboxing that is safe for dpkg/DKMS: do not touch ProtectSystem,
+# since dpkg and DKMS need to write to /usr, /var, /lib/modules, etc.
+ProtectHome=yes
+PrivateTmp=yes
+# Make log routing explicit rather than relying on the systemd default.
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
