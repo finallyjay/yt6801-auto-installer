@@ -39,7 +39,7 @@ setup() {
     mkdir -p "$STUBDIR"
     : >"$CALLS_LOG"
 
-    for cmd in dpkg dpkg-query dpkg-deb systemctl modprobe lsmod sync sudo; do
+    for cmd in dpkg dpkg-query dpkg-deb depmod systemctl modprobe lsmod sync sudo; do
         write_stub "$cmd" "exit 0"
     done
 
@@ -83,6 +83,17 @@ sandbox_copy() {
 # calls_of <name> - number of times stub <name> was invoked.
 calls_of() {
     grep -c "^$1 " "$CALLS_LOG" || true
+}
+
+# assert_no_privileged_calls - fails if any stubbed privileged command
+# (dpkg, dpkg-query, dpkg-deb, depmod, modprobe, lsmod, systemctl, sync,
+# sudo) was invoked. Used to prove the root check exits before any of them
+# could run.
+assert_no_privileged_calls() {
+    local cmd
+    for cmd in dpkg dpkg-query dpkg-deb depmod modprobe lsmod systemctl sync sudo; do
+        [ "$(calls_of "$cmd")" -eq 0 ]
+    done
 }
 
 @test "install_yt6801_if_needed.sh fails cleanly when no .deb package is present" {
@@ -147,10 +158,7 @@ calls_of() {
     [[ "$output" == *"must be run as root"* ]]
 
     # The script must exit before touching anything privileged.
-    [ "$(calls_of dpkg)" -eq 0 ]
-    [ "$(calls_of dpkg-deb)" -eq 0 ]
-    [ "$(calls_of depmod)" -eq 0 ]
-    [ "$(calls_of modprobe)" -eq 0 ]
+    assert_no_privileged_calls
 }
 
 @test "check_yt6801_and_reboot.sh refuses to run as non-root" {
@@ -166,6 +174,5 @@ calls_of() {
 
     [ "$status" -eq 1 ]
     [[ "$output" == *"must be run as root"* ]]
-    [ "$(calls_of systemctl)" -eq 0 ]
-    [ "$(calls_of modprobe)" -eq 0 ]
+    assert_no_privileged_calls
 }
