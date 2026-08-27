@@ -1,6 +1,17 @@
 #!/bin/bash
 set -e
 
+# This script is normally launched by systemd (as root) or via setup.sh's
+# service, but can also be run manually. Either way it needs root to run
+# dpkg/depmod/modprobe and to write /etc/modules, so require it up front
+# instead of relying on fragile per-command `sudo`.
+# YT6801_SKIP_ROOT_CHECK is set only by the bats test suite (test/smoke.bats)
+# to exercise this script's logic without requiring the test runner to be root.
+if [ "$(id -u)" -ne 0 ] && [ -z "${YT6801_SKIP_ROOT_CHECK:-}" ]; then
+    echo "This script must be run as root (use: sudo ./install_yt6801_if_needed.sh)." >&2
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOGF="$SCRIPT_DIR/install_yt6801.log"
 PKG_NAME="tuxedo-yt6801"
@@ -58,14 +69,14 @@ echo "$(date): Using package: $DEB_PKG" >>"$LOGF"
 # Install the package
 {
     echo "$(date): Installing .deb package..."
-    if ! sudo dpkg -i "$DEB_PKG" 2>&1; then
+    if ! dpkg -i "$DEB_PKG" 2>&1; then
         echo "$(date): ERROR: dpkg -i failed to install $DEB_PKG"
         exit 1
     fi
 
     # Regenerate module dependencies
     echo "$(date): Running depmod..."
-    sudo depmod 2>&1
+    depmod 2>&1
 
     # Verify module
     echo "$(date): Checking lsmod..."
@@ -75,7 +86,7 @@ echo "$(date): Using package: $DEB_PKG" >>"$LOGF"
 # Add module to /etc/modules if not present
 if ! grep -qxF 'yt6801' /etc/modules; then
     echo "$(date): Adding 'yt6801' to /etc/modules" >>"$LOGF"
-    echo 'yt6801' | sudo tee -a /etc/modules >>/dev/null
+    echo 'yt6801' >>/etc/modules
 else
     echo "$(date): 'yt6801' already present in /etc/modules" >>"$LOGF"
 fi
@@ -83,11 +94,11 @@ fi
 # Second call to depmod just in case
 {
     echo "$(date): Second depmod call..."
-    sudo depmod 2>&1
+    depmod 2>&1
 } >>"$LOGF"
 
 # Verify the module can actually be loaded before declaring success
-if ! sudo modprobe yt6801 2>>"$LOGF"; then
+if ! modprobe yt6801 2>>"$LOGF"; then
     echo "$(date): ERROR: modprobe yt6801 failed; installation did not succeed." >>"$LOGF"
     exit 1
 fi

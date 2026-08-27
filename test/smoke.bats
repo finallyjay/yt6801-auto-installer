@@ -10,6 +10,15 @@
 # arguments to $CALLS_LOG, so tests assert exactly what was (and was not)
 # invoked instead of trusting exit codes alone.
 #
+# All scripts under test now refuse to run unless invoked as root (they no
+# longer shell out to `sudo` internally - see setup.sh/uninstall.sh for the
+# rationale). The bats test runner itself is not root, so `setup()` exports
+# YT6801_SKIP_ROOT_CHECK=1, a switch every script's root check honors, purely
+# to let these tests exercise the scripts' logic without requiring the CI
+# runner to run as root. It is not documented in the README/CLI usage on
+# purpose: it is a test-only escape hatch, not a supported way to bypass the
+# root requirement.
+#
 # Known, documented limitation: check_yt6801_and_reboot.sh invokes the
 # reboot command by its absolute path (`/usr/bin/systemctl reboot`), not via
 # a PATH lookup. That is intentional hardening in the script (it avoids a
@@ -35,6 +44,7 @@ setup() {
     done
 
     export PATH="$STUBDIR:$PATH"
+    export YT6801_SKIP_ROOT_CHECK=1
 }
 
 teardown() {
