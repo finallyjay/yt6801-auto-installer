@@ -3,6 +3,9 @@ updates:
   # GitHub Actions used by the repo's workflows
   - package-ecosystem: "github-actions"
     directory: "/"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     schedule:
       interval: "weekly"
     groups:
