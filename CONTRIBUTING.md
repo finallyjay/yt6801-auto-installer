@@ -4,7 +4,7 @@ Thanks for taking the time to contribute! This document describes how to
 report problems, propose changes, and test your work locally.
 
 By participating in this project you agree to abide by the
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](https://github.com/finallyjay/.github/blob/main/CODE_OF_CONDUCT.md).
 
 ## Ways to contribute
 
