@@ -8,6 +8,9 @@ updates:
       include: "scope"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Madrid"
     groups:
       github-actions:
         update-types:
