@@ -14,7 +14,24 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FLAG="$SCRIPT_DIR/yt6801_reboot_once.flag"
 
+# shellcheck source=yt6801-common.sh
+. "$SCRIPT_DIR/yt6801-common.sh"
+
 echo "=== $(date): Checking YT6801 module status ==="
+
+# Never reboot over a missing TUXEDO module when it is not supposed to be
+# there: either there is no controller, or the kernel drives it natively.
+if ! yt6801_device_present; then
+    echo "$(date): No Motorcomm YT6801 controller detected; no reboot needed."
+    rm -f "$FLAG"
+    exit 0
+fi
+
+if NATIVE_DRIVER="$(yt6801_native_driver)"; then
+    echo "$(date): Kernel $(uname -r) provides its own YT6801 driver ($NATIVE_DRIVER); no reboot needed."
+    rm -f "$FLAG"
+    exit 0
+fi
 
 # Check if the module is loaded
 if ! lsmod | grep -q yt6801; then

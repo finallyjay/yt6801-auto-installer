@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Log to stdout/stderr instead of `install_yt6801.log`: since both scripts run under `yt6801-reinstall.service`, which already sends `StandardOutput`/`StandardError` to the journal, output now goes straight to `journalctl -u yt6801-reinstall.service` instead of an unrotated file in `/opt`
 
 ### Fixed
+- Stop fighting the in-kernel driver: Linux 7.0+ ships `dwmac-motorcomm` for the YT6801, and the boot service used to reinstall the TUXEDO package (and could reboot) on every boot because the `yt6801` module was never loaded there. `install_yt6801_if_needed.sh` and `check_yt6801_and_reboot.sh` now detect the controller and the kernel's own driver (new shared `yt6801-common.sh`) and do nothing when the TUXEDO package is not needed, or when there is no YT6801 at all
 - Fix clone URL placeholder in README (#4)
 - Propagate `install_yt6801_if_needed.sh` failures: `dpkg -i` errors now log and exit non-zero instead of being swallowed, and the module is verified with `modprobe` after install (#14)
 - Harden the `yt6801-reinstall.service` systemd unit: longer DKMS build timeout, correct network ordering, `ProtectHome`/`PrivateTmp` sandboxing, and explicit journal logging (#15)

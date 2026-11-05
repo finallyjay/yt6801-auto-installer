@@ -1,0 +1,4 @@
+# Resolve `. "$SCRIPT_DIR/yt6801-common.sh"` relative to the sourcing script,
+# so ShellCheck follows the shared helpers instead of reporting SC1091.
+source-path=SCRIPTDIR
+external-sources=true

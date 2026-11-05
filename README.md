@@ -6,6 +6,21 @@
 
 Automatically installs and maintains the YT6801 (Motorcomm) network driver on Linux systems. Handles kernel updates by reinstalling the driver at boot if the module is not loaded, and reboots once if necessary.
 
+## Do You Need This?
+
+Only if your kernel has no driver for the YT6801.
+
+- **Linux 7.0 and newer** ship an in-tree driver, `dwmac-motorcomm` (for example the Ubuntu 24.04 HWE 7.0 kernel). You do **not** need this project, nor the TUXEDO package.
+- **Older kernels** (for example the Ubuntu 24.04 GA 6.8 kernel) do not recognise the controller, so the ethernet port stays dead without the TUXEDO driver. That is what this project is for.
+
+Check what your kernel does:
+
+```bash
+lspci -nnk -d 1f0a:6801   # "Kernel driver in use: dwmac-motorcomm" -> nothing to do
+```
+
+The installer checks this too: on a kernel that drives the YT6801 natively (or on a machine without one) it does nothing, and it never reboots over a missing TUXEDO module. If you move to Linux 7.0+, see [Uninstallation](#uninstallation).
+
 ## Requirements
 
 - Ubuntu 24.04 (or compatible Debian-based distribution)
@@ -36,6 +51,7 @@ yt6801-auto-installer/
 │   └── tuxedo-yt6801_1.0.28-1_all.deb
 ├── install_yt6801_if_needed.sh
 ├── check_yt6801_and_reboot.sh
+├── yt6801-common.sh
 ├── yt6801-reinstall.service
 ├── setup.sh
 ├── uninstall.sh
@@ -50,6 +66,7 @@ yt6801-auto-installer/
 | `deb/` | Contains the `.deb` driver package(s). The install script auto-detects the latest one. |
 | `install_yt6801_if_needed.sh` | Installs/reinstalls the driver if the module is not loaded. |
 | `check_yt6801_and_reboot.sh` | Checks module status and triggers a single reboot if needed. |
+| `yt6801-common.sh` | Shared helpers: detects the controller and whether the kernel already drives it. |
 | `yt6801-reinstall.service` | systemd oneshot service that runs at boot. |
 | `setup.sh` | Automated installer: copies files and enables the service. |
 | `uninstall.sh` | Automated uninstaller: stops, disables, and removes everything. |
@@ -73,7 +90,7 @@ If you prefer to install step by step (this mirrors what `setup.sh` does): the s
 
 ```bash
 sudo mkdir -p /opt/yt6801-auto-installer
-sudo cp -r deb install_yt6801_if_needed.sh check_yt6801_and_reboot.sh yt6801-reinstall.service /opt/yt6801-auto-installer/
+sudo cp -r deb install_yt6801_if_needed.sh check_yt6801_and_reboot.sh yt6801-common.sh yt6801-reinstall.service /opt/yt6801-auto-installer/
 sudo chmod +x /opt/yt6801-auto-installer/install_yt6801_if_needed.sh /opt/yt6801-auto-installer/check_yt6801_and_reboot.sh
 sudo cp /opt/yt6801-auto-installer/yt6801-reinstall.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -155,10 +172,11 @@ sudo systemctl is-enabled yt6801-reinstall.service
 ## How It Works
 
 1. On boot, the systemd service runs `install_yt6801_if_needed.sh`
-2. If the `yt6801` module is already loaded, it exits immediately
-3. If not, it installs the `.deb` package, runs `depmod`, and adds the module to `/etc/modules`
-4. Then `check_yt6801_and_reboot.sh` verifies the module loaded correctly
-5. If the module still isn't loaded, it reboots the system **once** (tracked via a flag file)
+2. If there is no YT6801 controller, or the running kernel already provides a driver for it (Linux 7.0+ `dwmac-motorcomm`), it exits without touching anything
+3. If the `yt6801` module is already loaded, it exits immediately
+4. If not, it installs the `.deb` package, runs `depmod`, and adds the module to `/etc/modules`
+5. Then `check_yt6801_and_reboot.sh` verifies the module loaded correctly (it applies the same check as step 2, so it never reboots on a kernel with a native driver)
+6. If the module still isn't loaded, it reboots the system **once** (tracked via a flag file)
 
 ## License
 
