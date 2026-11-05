@@ -15,7 +15,25 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG_NAME="tuxedo-yt6801"
 
+# shellcheck source=yt6801-common.sh
+. "$SCRIPT_DIR/yt6801-common.sh"
+
 echo "=== $(date): Starting YT6801 driver installation if needed ==="
+
+# Nothing to do on machines without the controller (e.g. the disk was moved
+# to other hardware): installing the package there only wastes a DKMS build.
+if ! yt6801_device_present; then
+    echo "$(date): No Motorcomm YT6801 controller detected; nothing to do."
+    exit 0
+fi
+
+# Linux 7.0+ ships its own YT6801 driver (dwmac-motorcomm). On those kernels
+# the TUXEDO package is not needed, and reinstalling it here would fight the
+# in-kernel driver at every boot.
+if NATIVE_DRIVER="$(yt6801_native_driver)"; then
+    echo "$(date): Kernel $(uname -r) already provides a YT6801 driver ($NATIVE_DRIVER); the TUXEDO package is not needed. Nothing to do."
+    exit 0
+fi
 
 # Auto-detect the tuxedo-yt6801 .deb package with the highest Debian version in
 # deb/. Needed both to install and, when the module is already loaded, to check
