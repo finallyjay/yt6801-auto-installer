@@ -30,6 +30,7 @@ STAGE_NAME="$NAME-$VERSION"
 
 # Files shipped in the tarball, relative to the repo root.
 SHIPPED_FILES=(
+    install.sh
     setup.sh
     uninstall.sh
     install_yt6801_if_needed.sh
@@ -43,7 +44,7 @@ SHIPPED_FILES=(
     VERSION
 )
 # Scripts also published as standalone release assets.
-STANDALONE_SCRIPTS=(uninstall.sh)
+STANDALONE_SCRIPTS=(install.sh uninstall.sh)
 
 fail() {
     echo "ERROR: $*" >&2

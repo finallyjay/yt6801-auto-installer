@@ -43,6 +43,10 @@ shfmt -i 4 -d $(git ls-files '*.sh')
 bats test/
 ```
 
+Run the tests with bash 4 or newer (on macOS, `brew install bash`). Under
+macOS's bash 3.2 a failing `[[ ... ]]` in the middle of a test does not fail
+it, so a broken test can pass locally.
+
 The CI workflow at `.github/workflows/shellcheck.yml` runs these on every
 push and pull request targeting `main`. PRs that fail them will not be
 merged.
