@@ -1,27 +1,52 @@
 name: Release
 
-# Publishes a GitHub release when a vX.Y.Z tag is pushed. The assets are
-# built by tools/build-release.sh (see that script for what they are).
+# On every push to main, release-please keeps a release pull request up to
+# date (VERSION, CHANGELOG.md and the README badge, from the Conventional
+# Commit titles of the merged PRs). Merging that PR makes release-please tag
+# the release and publish it; the `assets` job then builds the release
+# assets with tools/build-release.sh and uploads them to it.
+#
+# Both jobs live in one workflow on purpose: a tag created with the
+# workflow's GITHUB_TOKEN does not trigger other workflows.
 
 on:
   push:
-    tags: ["v*.*.*"]
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  release-please:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create the release and upload its assets
+      contents: write # tags and releases
+      pull-requests: write # the release PR
+      issues: write # the release PR's labels
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+
+  assets:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload release assets
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
     steps:
       # Pinned by SHA: this job can write releases.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       - name: Install Bats
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # 4.0.0
@@ -35,20 +60,13 @@ jobs:
         run: bats test/
 
       - name: Build release assets
-        run: tools/build-release.sh "${GITHUB_REF_NAME}" dist
+        run: tools/build-release.sh "$TAG" dist
 
       - name: Verify checksums
         working-directory: dist
         run: sha256sum -c SHA256SUMS
 
-      - name: Publish release
+      - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --verify-tag \
-            --title "${GITHUB_REF_NAME}" \
-            --notes-file dist/release-notes.md \
-            dist/*.tar.gz \
-            dist/*.sh \
-            dist/SHA256SUMS
+        run: gh release upload "$TAG" dist/*.tar.gz dist/*.sh dist/SHA256SUMS --clobber

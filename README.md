@@ -2,7 +2,7 @@
 
 [![ShellCheck](https://github.com/finallyjay/yt6801-auto-installer/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/finallyjay/yt6801-auto-installer/actions/workflows/shellcheck.yml)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/finallyjay/yt6801-auto-installer/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/finallyjay/yt6801-auto-installer/releases) <!-- x-release-please-version -->
 
 Automatically installs and maintains the YT6801 (Motorcomm) network driver on Linux systems. Handles kernel updates by reinstalling the driver at boot if the module is not loaded, and reboots once if necessary.
 
