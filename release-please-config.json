@@ -5,13 +5,7 @@
       "release-type": "simple",
       "version-file": "VERSION",
       "changelog-path": "CHANGELOG.md",
-      "include-component-in-tag": false,
-      "extra-files": [
-        {
-          "type": "generic",
-          "path": "README.md"
-        }
-      ]
+      "include-component-in-tag": false
     }
   }
 }
