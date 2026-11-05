@@ -39,7 +39,7 @@ setup() {
     mkdir -p "$STUBDIR"
     : >"$CALLS_LOG"
 
-    for cmd in dpkg dpkg-query dpkg-deb depmod systemctl modprobe lsmod sync sudo; do
+    for cmd in dpkg dpkg-query dpkg-deb depmod systemctl modprobe lsmod sync sudo apt-get; do
         write_stub "$cmd" "exit 0"
     done
 
@@ -56,6 +56,19 @@ setup() {
     : >"$YT6801_MODULES_DIR/modules.alias"
     fake_pci_device "0000:00:02.0" 0x8086 0x46d4 # unrelated device (iGPU)
     fake_pci_device "0000:01:00.0" 0x1f0a 0x6801 # the YT6801
+
+    # Fake install locations for uninstall.sh (test-only overrides).
+    export YT6801_INSTALL_DIR="$SANDBOX/opt/yt6801-auto-installer"
+    export YT6801_SYSTEMD_DIR="$SANDBOX/etc/systemd/system"
+    export YT6801_ETC_MODULES="$SANDBOX/etc/modules"
+    mkdir -p "$YT6801_INSTALL_DIR" "$YT6801_SYSTEMD_DIR"
+    touch "$YT6801_SYSTEMD_DIR/yt6801-reinstall.service"
+    printf '# /etc/modules\nloop\nyt6801\n' >"$YT6801_ETC_MODULES"
+}
+
+# fake_package_installed - makes dpkg-query report tuxedo-yt6801 as installed.
+fake_package_installed() {
+    write_stub dpkg-query 'echo -n "install ok installed"'
 }
 
 # fake_pci_device <address> <vendor> <device> - adds a device with the
@@ -306,6 +319,112 @@ assert_no_privileged_calls() {
     [[ "$output" == *"No Motorcomm YT6801 controller detected"* ]]
     [ "$(calls_of systemctl)" -eq 0 ]
     [ "$(calls_of modprobe)" -eq 0 ]
+}
+
+@test "uninstall.sh refuses to remove the driver when the ethernet port depends on it" {
+    fake_package_installed
+    fake_bind "0000:01:00.0" yt6801 # TUXEDO drives the port, no native driver
+
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Refusing to remove the driver"* ]]
+    # Nothing was touched.
+    [ "$(calls_of apt-get)" -eq 0 ]
+    [ "$(calls_of systemctl)" -eq 0 ]
+    [ -d "$YT6801_INSTALL_DIR" ]
+    grep -qx yt6801 "$YT6801_ETC_MODULES"
+}
+
+@test "uninstall.sh --force removes the driver even if the ethernet port depends on it" {
+    fake_package_installed
+    fake_bind "0000:01:00.0" yt6801
+
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script" --force
+
+    [ "$status" -eq 0 ]
+    grep -q "^apt-get .*purge -y tuxedo-yt6801" "$CALLS_LOG"
+    [ "$(grep -cx yt6801 "$YT6801_ETC_MODULES" || true)" -eq 0 ]
+}
+
+@test "uninstall.sh removes everything when the kernel has its own driver" {
+    fake_package_installed
+    fake_alias dwmac_motorcomm # native driver available, device unbound
+
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 0 ]
+    [ ! -e "$YT6801_SYSTEMD_DIR/yt6801-reinstall.service" ]
+    [ ! -d "$YT6801_INSTALL_DIR" ]
+    grep -q "^apt-get -o DPkg::Lock::Timeout=300 purge -y tuxedo-yt6801" "$CALLS_LOG"
+    # Only the yt6801 line is gone; the rest of /etc/modules is kept.
+    [ "$(grep -cx yt6801 "$YT6801_ETC_MODULES" || true)" -eq 0 ]
+    grep -qx loop "$YT6801_ETC_MODULES"
+    # The unbound port gets the kernel's own driver right away.
+    grep -q "^modprobe dwmac_motorcomm" "$CALLS_LOG"
+}
+
+@test "uninstall.sh --keep-driver leaves the driver and /etc/modules alone" {
+    fake_package_installed
+    fake_bind "0000:01:00.0" yt6801
+
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script" --keep-driver
+
+    [ "$status" -eq 0 ]
+    [ ! -d "$YT6801_INSTALL_DIR" ]
+    [ "$(calls_of apt-get)" -eq 0 ]
+    [ "$(calls_of dpkg)" -eq 0 ]
+    grep -qx yt6801 "$YT6801_ETC_MODULES"
+}
+
+@test "uninstall.sh skips the purge when the package is not installed" {
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"package is not installed"* ]]
+    [ "$(calls_of apt-get)" -eq 0 ]
+}
+
+@test "uninstall.sh rejects unknown options" {
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script" --bogus
+
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Unknown option: --bogus"* ]]
+    [ "$(calls_of systemctl)" -eq 0 ]
+}
+
+@test "uninstall.sh refuses to run as non-root" {
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "test runner itself is root; cannot exercise the non-root rejection path"
+    fi
+    unset YT6801_SKIP_ROOT_CHECK
+
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be run as root"* ]]
+    assert_no_privileged_calls
 }
 
 @test "install_yt6801_if_needed.sh ignores an in-tree alias for other subsystem IDs" {

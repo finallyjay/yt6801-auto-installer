@@ -13,8 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Issue templates (#8)
 - Pull request template (#9)
 - Dependabot configuration for GitHub Actions version updates
+- `uninstall.sh --keep-driver` to only remove the auto-installer, and `--force` to remove the driver even when the ethernet port depends on it
 
 ### Changed
+- `uninstall.sh` now removes the driver too: it purges `tuxedo-yt6801` (and with it the DKMS module), removes the `yt6801` line from `/etc/modules`, and loads the kernel's own driver right away when there is one. It refuses to do so when the ethernet port depends on the TUXEDO module, and waits for the dpkg lock instead of failing while unattended-upgrades runs
 - Bump `actions/checkout` from 4 to 6 (#10)
 - Bump `actions/checkout` from 6 to 7 (#12)
 - Log to stdout/stderr instead of `install_yt6801.log`: since both scripts run under `yt6801-reinstall.service`, which already sends `StandardOutput`/`StandardError` to the journal, output now goes straight to `journalctl -u yt6801-reinstall.service` instead of an unrotated file in `/opt`
