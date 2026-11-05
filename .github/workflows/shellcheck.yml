@@ -38,7 +38,7 @@ jobs:
           chmod +x shfmt
           sudo mv shfmt /usr/local/bin/shfmt
       - name: Check formatting (shfmt -d)
-        run: shfmt -i 4 -d *.sh
+        run: shfmt -i 4 -d $(git ls-files '*.sh')
 
   test:
     runs-on: ubuntu-latest
