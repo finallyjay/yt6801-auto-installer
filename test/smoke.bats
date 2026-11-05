@@ -58,12 +58,16 @@ setup() {
     fake_pci_device "0000:01:00.0" 0x1f0a 0x6801 # the YT6801
 }
 
-# fake_pci_device <address> <vendor> <device>
+# fake_pci_device <address> <vendor> <device> - adds a device with the
+# subsystem IDs of the real mini PC's YT6801 (2066:9806) in its modalias.
 fake_pci_device() {
-    local dev="$YT6801_SYSFS_PCI/$1"
+    local dev="$YT6801_SYSFS_PCI/$1" v d
     mkdir -p "$dev"
     echo "$2" >"$dev/vendor"
     echo "$3" >"$dev/device"
+    v="$(echo "${2#0x}" | tr '[:lower:]' '[:upper:]')"
+    d="$(echo "${3#0x}" | tr '[:lower:]' '[:upper:]')"
+    echo "pci:v0000${v}d0000${d}sv00002066sd00009806bc02sc00i00" >"$dev/modalias"
 }
 
 # fake_bind <address> <driver> - binds a fake device to a fake driver.
@@ -72,9 +76,12 @@ fake_bind() {
     ln -sfn "$SANDBOX/drivers/$2" "$YT6801_SYSFS_PCI/$1/driver"
 }
 
-# fake_alias <module> - makes the fake kernel claim the YT6801 with <module>.
+# fake_alias <module> [pattern] [file] - makes the fake kernel claim the
+# YT6801 with <module> (any subsystem by default) in modules.alias, or in
+# another index such as modules.builtin.alias.
 fake_alias() {
-    echo "alias pci:v00001F0Ad00006801sv*sd*bc*sc*i* $1" >>"$YT6801_MODULES_DIR/modules.alias"
+    local pattern="${2:-pci:v00001F0Ad00006801sv*sd*bc*sc*i*}"
+    echo "alias $pattern $1" >>"$YT6801_MODULES_DIR/${3:-modules.alias}"
 }
 
 # fake_no_yt6801 - removes the YT6801 from the fake machine.
@@ -299,4 +306,45 @@ assert_no_privileged_calls() {
     [[ "$output" == *"No Motorcomm YT6801 controller detected"* ]]
     [ "$(calls_of systemctl)" -eq 0 ]
     [ "$(calls_of modprobe)" -eq 0 ]
+}
+
+@test "install_yt6801_if_needed.sh ignores an in-tree alias for other subsystem IDs" {
+    # Claims the YT6801 only on boards with subsystem 1234:5678, not ours.
+    fake_alias dwmac_motorcomm "pci:v00001F0Ad00006801sv00001234sd00005678bc*sc*i*"
+
+    local script
+    script="$(sandbox_copy install_yt6801_if_needed.sh)"
+
+    run "$script"
+
+    [[ "$output" != *"already provides a YT6801 driver"* ]]
+    [[ "$output" == *"ERROR: No .deb package found"* ]]
+}
+
+@test "install_yt6801_if_needed.sh skips the TUXEDO package when the in-tree driver is built in" {
+    fake_alias dwmac_motorcomm "" modules.builtin.alias
+
+    local script
+    script="$(sandbox_copy install_yt6801_if_needed.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"already provides a YT6801 driver (dwmac_motorcomm)"* ]]
+    [ "$(calls_of dpkg)" -eq 0 ]
+}
+
+@test "check_yt6801_and_reboot.sh sees a native driver bound to a second YT6801" {
+    write_stub lsmod "exit 0"
+    fake_pci_device "0000:02:00.0" 0x1f0a 0x6801
+    fake_bind "0000:02:00.0" dwmac-motorcomm # the first one stays unbound
+
+    local script
+    script="$(sandbox_copy check_yt6801_and_reboot.sh)"
+
+    run "$script"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"provides its own YT6801 driver (dwmac-motorcomm)"* ]]
+    [ "$(calls_of systemctl)" -eq 0 ]
 }
