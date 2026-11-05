@@ -70,14 +70,15 @@ sha256() {
     fi
 }
 
-# stamp <file> - writes the release version into a shipped script.
+# stamp <file> - writes the release version into a shipped script, and fails
+# if a script declares YT6801_RELEASE_VERSION but did not get it (e.g. the
+# placeholder was reformatted), rather than shipping a script that would
+# silently fetch "latest" instead of its own release.
 stamp() {
-    local file="$1" tmp
-    if grep -q '^YT6801_RELEASE_VERSION=""' "$file"; then
-        tmp="$(mktemp)"
-        sed "s/^YT6801_RELEASE_VERSION=\"\"/YT6801_RELEASE_VERSION=\"$VERSION\"/" "$file" >"$tmp"
-        cat "$tmp" >"$file"
-        rm -f "$tmp"
+    sed "s/^YT6801_RELEASE_VERSION=\"\"/YT6801_RELEASE_VERSION=\"$VERSION\"/" "$1" >"$1.tmp"
+    mv "$1.tmp" "$1"
+    if grep -q '^YT6801_RELEASE_VERSION=' "$1" && ! grep -q "^YT6801_RELEASE_VERSION=\"$VERSION\"" "$1"; then
+        fail "could not stamp the version into $(basename "$1")"
     fi
 }
 
@@ -100,7 +101,10 @@ TARBALL="$STAGE_NAME.tar.gz"
 
 # Reproducible archive with GNU tar (CI); plain tar elsewhere (e.g. macOS).
 if tar --version 2>/dev/null | grep -q 'GNU tar'; then
-    EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$REPO_ROOT" log -1 --format=%ct 2>/dev/null || date +%s)}"
+    if ! EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$REPO_ROOT" log -1 --format=%ct 2>/dev/null)}" || [ -z "$EPOCH" ]; then
+        echo "WARNING: no git history or SOURCE_DATE_EPOCH; the archive is not reproducible" >&2
+        EPOCH="$(date +%s)"
+    fi
     tar --sort=name --mtime="@$EPOCH" --owner=0 --group=0 --numeric-owner \
         -C "$WORK" -cf - "$STAGE_NAME" | gzip -9n >"$OUT_DIR/$TARBALL"
 else
