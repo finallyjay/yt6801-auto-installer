@@ -1,7 +1,7 @@
 name: Release
 
 # On every push to main, release-please keeps a release pull request up to
-# date (VERSION, CHANGELOG.md and the README badge, from the Conventional
+# date (VERSION and CHANGELOG.md, from the Conventional
 # Commit titles of the merged PRs). Merging that PR makes release-please tag
 # the release and publish it; the `assets` job then builds the release
 # assets with tools/build-release.sh and uploads them to it.

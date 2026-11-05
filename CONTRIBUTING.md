@@ -92,8 +92,8 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
    title (`feat: …`, `fix: …`, `docs: …`). PRs are squash-merged, so that title
    becomes the commit on `main`: `feat` bumps the minor version, `fix` the
    patch, and `feat!`/`BREAKING CHANGE` the major.
-2. release-please keeps a release PR open that bumps `VERSION`, the README
-   badge and `CHANGELOG.md`. Edit its changelog text if needed, then merge it.
+2. release-please keeps a release PR open that bumps `VERSION` and
+   `CHANGELOG.md`. Edit its changelog text if needed, then merge it.
 3. Merging it tags `vX.Y.Z` and publishes the GitHub release; the same
    workflow then runs the tests, builds the assets with
    `tools/build-release.sh` (try it locally with
