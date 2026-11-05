@@ -35,12 +35,12 @@ curl -fsSL https://yt6801.finallyjay.dev/install.sh | sudo bash
 curl -fsSL https://github.com/finallyjay/yt6801-auto-installer/releases/latest/download/install.sh | sudo bash
 ```
 
-The script downloads the release it belongs to, checks it against the release's `SHA256SUMS`, and only then runs it. It tells you what it is going to do and asks before changing anything (`--yes` skips the question). Want to read it first? It is the `install.sh` asset of the [latest release](https://github.com/finallyjay/yt6801-auto-installer/releases/latest).
+The script downloads the release it belongs to, checks it against the release's `SHA256SUMS`, and only then runs it. Run from a terminal, it shows what it is going to do and asks before changing anything (`--yes` skips the question; without a terminal it goes ahead). Want to read it first? It is the `install.sh` asset of the [latest release](https://github.com/finallyjay/yt6801-auto-installer/releases/latest).
 
 What it does:
 
 1. Checks this machine: if there is no YT6801, or the kernel already drives it (Linux 7.0+), it stops there without touching anything.
-2. Installs `dkms` and the headers of the running kernel if they are missing (this part needs internet).
+2. Installs `dkms` and the headers of the running kernel if they are missing, refreshing the package lists first (this part needs internet). If that fails, nothing else is changed.
 3. Installs the bundled TUXEDO driver, loads it, and enables `yt6801-reinstall.service`, which rebuilds it after kernel updates.
 4. Tells you whether the port is up, and how to uninstall.
 
@@ -82,13 +82,13 @@ curl -fsSL https://yt6801.finallyjay.dev/uninstall.sh | sudo bash
 sudo /opt/yt6801-auto-installer/uninstall.sh
 ```
 
-This removes everything: it stops and removes the boot service, deletes `/opt/yt6801-auto-installer/`, purges the `tuxedo-yt6801` package (which also drops its DKMS module from every kernel) and removes the `yt6801` line from `/etc/modules`. If the kernel has its own driver (Linux 7.0+), it is loaded right away so the network comes back without a reboot.
+This removes everything: it purges the `tuxedo-yt6801` package (which also drops its DKMS module from every kernel, and catches a package left half-installed by a failed build), removes the `yt6801` line from `/etc/modules`, and only then removes the boot service and `/opt/yt6801-auto-installer/`, so if removing the driver fails, everything needed to retry is still in place. If the kernel has its own driver (Linux 7.0+), it is loaded right away so the network comes back without a reboot.
 
-It will not remove the driver when your ethernet port depends on it (the port runs on the TUXEDO module and the kernel has no driver of its own), because that would cut the network immediately and after every reboot: it explains why and asks, and refuses when nobody can answer.
+It will not remove the driver when your ethernet port depends on it (the port runs on the TUXEDO module and the kernel has no driver of its own), because that would cut the network immediately and after every reboot. It explains why and asks (default: no); without a terminal it refuses. `--yes` does not answer this question: only `--force` skips it.
 
 | Option | Effect |
 |--------|--------|
-| `--keep-driver` | Only remove the auto-installer; keep the TUXEDO driver and `/etc/modules` entry (the pre-1.1 behaviour). |
+| `--keep-driver` | Only remove the auto-installer; keep the TUXEDO driver and `/etc/modules` entry (the old behaviour). |
 | `--force` | Remove the driver even if the ethernet port depends on it. |
 | `--yes` | Do not ask for confirmation. |
 
@@ -198,7 +198,7 @@ sudo systemctl is-enabled yt6801-reinstall.service
 
 1. On boot, the systemd service runs `install_yt6801_if_needed.sh`
 2. If there is no YT6801 controller, or the running kernel already provides a driver for it (Linux 7.0+ `dwmac-motorcomm`), it exits without touching anything
-3. If the `yt6801` module is already loaded, it exits immediately
+3. If the `yt6801` module is already loaded, it exits, unless `deb/` holds a newer package than the installed one
 4. If not, it installs the `.deb` package, runs `depmod`, and adds the module to `/etc/modules`
 5. Then `check_yt6801_and_reboot.sh` verifies the module loaded correctly (it applies the same check as step 2, so it never reboots on a kernel with a native driver)
 6. If the module still isn't loaded, it reboots the system **once** (tracked via a flag file)

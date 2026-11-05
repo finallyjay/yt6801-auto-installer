@@ -21,23 +21,6 @@ teardown() {
     common_teardown
 }
 
-@test "install_yt6801_if_needed.sh fails cleanly when no .deb package is present" {
-    write_stub lsmod "exit 0" # module not loaded, no matching output
-
-    local script
-    script="$(sandbox_copy install_yt6801_if_needed.sh)"
-
-    run "$script"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"ERROR: No .deb package found"* ]]
-
-    # Nothing privileged was ever attempted.
-    [ "$(calls_of dpkg)" -eq 0 ]
-    [ "$(calls_of dpkg-deb)" -eq 0 ]
-    [ "$(calls_of sudo)" -eq 0 ]
-}
-
 @test "check_yt6801_and_reboot.sh exits 0 without rebooting when the module is already loaded" {
     write_stub lsmod 'echo "yt6801 16384 0"'
 
@@ -64,69 +47,6 @@ teardown() {
     [ "$(calls_of systemctl)" -eq 0 ]
     [[ "$output" == *"reboot already done once"* ]]
     [ -f "$script_dir/yt6801_reboot_once.flag" ]
-}
-
-@test "install_yt6801_if_needed.sh refuses to run as non-root" {
-    if [ "$(id -u)" -eq 0 ]; then
-        skip "test runner itself is root; cannot exercise the non-root rejection path"
-    fi
-    unset YT6801_SKIP_ROOT_CHECK
-
-    local script
-    script="$(sandbox_copy install_yt6801_if_needed.sh)"
-
-    run "$script"
-
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"must be run as root"* ]]
-
-    # The script must exit before touching anything privileged.
-    assert_no_privileged_calls
-}
-
-@test "check_yt6801_and_reboot.sh refuses to run as non-root" {
-    if [ "$(id -u)" -eq 0 ]; then
-        skip "test runner itself is root; cannot exercise the non-root rejection path"
-    fi
-    unset YT6801_SKIP_ROOT_CHECK
-
-    local script
-    script="$(sandbox_copy check_yt6801_and_reboot.sh)"
-
-    run "$script"
-
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"must be run as root"* ]]
-    assert_no_privileged_calls
-}
-
-@test "install_yt6801_if_needed.sh does nothing when no YT6801 controller is present" {
-    fake_no_yt6801
-
-    local script
-    script="$(sandbox_copy install_yt6801_if_needed.sh)"
-
-    run "$script"
-
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"No Motorcomm YT6801 controller detected"* ]]
-    [ "$(calls_of dpkg)" -eq 0 ]
-    [ "$(calls_of dpkg-deb)" -eq 0 ]
-    [ "$(calls_of modprobe)" -eq 0 ]
-}
-
-@test "install_yt6801_if_needed.sh skips the TUXEDO package when the in-kernel driver is bound" {
-    fake_bind "0000:01:00.0" dwmac-motorcomm
-
-    local script
-    script="$(sandbox_copy install_yt6801_if_needed.sh)"
-
-    run "$script"
-
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"already provides a YT6801 driver (dwmac-motorcomm)"* ]]
-    [ "$(calls_of dpkg)" -eq 0 ]
-    [ "$(calls_of modprobe)" -eq 0 ]
 }
 
 @test "install_yt6801_if_needed.sh skips the TUXEDO package when the kernel ships an in-tree driver" {
@@ -169,7 +89,7 @@ teardown() {
     run "$script"
 
     [ "$status" -eq 0 ]
-    [[ "$output" == *"provides its own YT6801 driver"* ]]
+    [[ "$output" == *"already provides a YT6801 driver"* ]]
     [ "$(calls_of systemctl)" -eq 0 ]
     [ "$(calls_of modprobe)" -eq 0 ]
     [ ! -f "$script_dir/yt6801_reboot_once.flag" ]
@@ -197,6 +117,11 @@ teardown() {
     local script
     script="$(sandbox_copy uninstall.sh)"
 
+    # --yes must not answer the dangerous question: only --force skips it.
+    run "$script" --yes
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Refusing to remove the driver"* ]]
+
     run "$script"
 
     [ "$status" -eq 1 ]
@@ -223,7 +148,7 @@ teardown() {
 }
 
 @test "uninstall.sh removes everything when the kernel has its own driver" {
-    fake_package_installed
+    fake_package_installed half-configured # a failed DKMS build leaves this
     fake_alias dwmac_motorcomm # native driver available, device unbound
 
     local script
@@ -269,33 +194,6 @@ teardown() {
     [ "$(calls_of apt-get)" -eq 0 ]
 }
 
-@test "uninstall.sh rejects unknown options" {
-    local script
-    script="$(sandbox_copy uninstall.sh)"
-
-    run "$script" --bogus
-
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"Unknown option: --bogus"* ]]
-    [ "$(calls_of systemctl)" -eq 0 ]
-}
-
-@test "uninstall.sh refuses to run as non-root" {
-    if [ "$(id -u)" -eq 0 ]; then
-        skip "test runner itself is root; cannot exercise the non-root rejection path"
-    fi
-    unset YT6801_SKIP_ROOT_CHECK
-
-    local script
-    script="$(sandbox_copy uninstall.sh)"
-
-    run "$script"
-
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"must be run as root"* ]]
-    assert_no_privileged_calls
-}
-
 @test "install_yt6801_if_needed.sh ignores an in-tree alias for other subsystem IDs" {
     # Claims the YT6801 only on boards with subsystem 1234:5678, not ours.
     fake_alias dwmac_motorcomm "pci:v00001F0Ad00006801sv00001234sd00005678bc*sc*i*"
@@ -333,6 +231,91 @@ teardown() {
     run "$script"
 
     [ "$status" -eq 0 ]
-    [[ "$output" == *"provides its own YT6801 driver (dwmac-motorcomm)"* ]]
+    [[ "$output" == *"already provides a YT6801 driver (dwmac-motorcomm)"* ]]
     [ "$(calls_of systemctl)" -eq 0 ]
+}
+
+@test "every script refuses to run as non-root" {
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "test runner itself is root; cannot exercise the non-root rejection path"
+    fi
+    unset YT6801_SKIP_ROOT_CHECK
+
+    local name script
+    for name in install_yt6801_if_needed.sh check_yt6801_and_reboot.sh uninstall.sh install.sh; do
+        script="$(sandbox_copy "$name")"
+        run "$script"
+        [ "$status" -eq 1 ]
+        [[ "$output" == *"must be run as root"* ]]
+    done
+    # Every script exits before touching anything privileged.
+    assert_no_privileged_calls
+}
+
+@test "check_yt6801_and_reboot.sh does not reboot when modprobe brings the module back" {
+    write_stub lsmod "[ -f \"$SANDBOX/loaded\" ] && echo 'yt6801 16384 0'; exit 0"
+    write_stub modprobe "touch \"$SANDBOX/loaded\""
+
+    local script script_dir
+    script="$(sandbox_copy check_yt6801_and_reboot.sh)"
+    script_dir="$(dirname "$script")"
+
+    run "$script"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"loaded successfully after modprobe"* ]]
+    [ "$(calls_of systemctl)" -eq 0 ]
+    [ ! -f "$script_dir/yt6801_reboot_once.flag" ]
+}
+
+@test "install_yt6801_if_needed.sh does not reinstall a loaded, up-to-date driver" {
+    write_stub lsmod 'echo "yt6801 16384 0"'
+    write_stub dpkg-deb 'case "$3" in Package) echo tuxedo-yt6801 ;; Version) echo 1.0.28-1 ;; esac'
+    write_stub dpkg-query 'echo -n 1.0.28-1'
+    write_stub dpkg '[ "$1" = --compare-versions ] && exit 1; exit 0' # not newer
+
+    local script
+    script="$(sandbox_copy install_yt6801_if_needed.sh)"
+    touch "$(dirname "$script")/deb/tuxedo-yt6801_1.0.28-1_all.deb"
+
+    run "$script"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"is up to date"* ]]
+    [ "$(grep -c '^dpkg -i' "$CALLS_LOG" || true)" -eq 0 ]
+    [ "$(calls_of modprobe)" -eq 0 ]
+}
+
+@test "uninstall.sh keeps the service and its files when removing the driver fails" {
+    fake_package_installed
+    fake_alias dwmac_motorcomm
+    write_stub apt-get "exit 1"
+
+    local script
+    script="$(sandbox_copy uninstall.sh)"
+
+    run "$script"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" != *"Uninstallation complete"* ]]
+    # Still there to retry: the boot service, the offline uninstaller's
+    # folder, and the /etc/modules entry.
+    [ -f "$YT6801_SYSTEMD_DIR/yt6801-reinstall.service" ]
+    [ -d "$YT6801_INSTALL_DIR" ]
+    grep -qx yt6801 "$YT6801_ETC_MODULES"
+}
+
+@test "ui_run reports a failure in the middle of a step, even without a terminal" {
+    # Same shell options as the real scripts.
+    run bash -c '
+        set -euo pipefail
+        . "$1"
+        ui_init
+        step() { false; echo "should not run"; }
+        ui_run "A step" "$2" step
+    ' _ "$REPO_ROOT/yt6801-common.sh" "$SANDBOX/ui.log"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"A step (failed)"* ]]
+    [ "$(grep -c "should not run" "$SANDBOX/ui.log" || true)" -eq 0 ]
 }

@@ -45,9 +45,10 @@ common_setup() {
     printf '# /etc/modules\nloop\nyt6801\n' >"$YT6801_ETC_MODULES"
 }
 
-# fake_package_installed - makes dpkg-query report tuxedo-yt6801 as installed.
+# fake_package_installed [state] - makes dpkg-query report tuxedo-yt6801 in
+# the given dpkg state ("installed" by default).
 fake_package_installed() {
-    write_stub dpkg-query 'echo -n "install ok installed"'
+    write_stub dpkg-query "echo -n ${1:-installed}"
 }
 
 # fake_pci_device <address> <vendor> <device> - adds a device with the

@@ -70,7 +70,26 @@ teardown() {
     run bash "$INSTALLER/install.sh" --yes
 
     [ "$status" -eq 0 ]
+    # Package lists are refreshed first: a machine whose port never worked
+    # usually has none.
+    grep -q "^apt-get .* update" "$CALLS_LOG"
     grep -q "^apt-get .*install -y dkms linux-headers-" "$CALLS_LOG"
+}
+
+@test "install.sh changes nothing when the build dependencies cannot be installed" {
+    rm -f "$STUBDIR/dkms"
+    if command -v dkms >/dev/null 2>&1; then
+        skip "dkms is installed on this machine"
+    fi
+    write_stub apt-get "exit 100"
+
+    run bash "$INSTALLER/install.sh" --yes
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Nothing else was changed"* ]]
+    [ ! -d "$YT6801_INSTALL_DIR" ]
+    [ "$(calls_of systemctl)" -eq 0 ]
+    [ "$(calls_of dpkg)" -eq 0 ]
 }
 
 @test "install.sh does nothing on a kernel with its own YT6801 driver" {
@@ -165,4 +184,22 @@ build_fake_release() {
     [[ "$output" == *"Checksum verified"* ]]
     [[ "$output" == *"Uninstallation complete"* ]]
     [ ! -e "$YT6801_SYSTEMD_DIR/yt6801-reinstall.service" ]
+}
+
+@test "piped install.sh runs nothing when the download fails or the script is cut short" {
+    mkdir -p "$SANDBOX/empty-release"
+    export YT6801_RELEASE_BASE_URL="file://$SANDBOX/empty-release"
+
+    run bash -s -- --yes <"$INSTALLER/install.sh"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Download failed"* ]]
+
+    # A download cut short ends inside a function: bash must refuse it whole.
+    run bash -c 'head -n 60 "$1" | bash -s -- --yes' _ "$INSTALLER/install.sh"
+    [ "$status" -ne 0 ]
+    [[ "$output" != *"Downloading"* ]]
+
+    [ "$(calls_of dpkg)" -eq 0 ]
+    [ "$(calls_of systemctl)" -eq 0 ]
+    [ ! -d "$YT6801_INSTALL_DIR" ]
 }
