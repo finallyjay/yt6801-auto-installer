@@ -109,12 +109,14 @@ sudo systemctl start yt6801-reinstall.service
 sudo bash uninstall.sh
 ```
 
-This stops the service, removes the service file, and deletes `/opt/yt6801-auto-installer/`. The kernel module and its `/etc/modules` entry are preserved. To fully remove:
+This removes everything: it stops and removes the boot service, deletes `/opt/yt6801-auto-installer/`, purges the `tuxedo-yt6801` package (which also drops its DKMS module from every kernel) and removes the `yt6801` line from `/etc/modules`. If the kernel has its own driver (Linux 7.0+), it is loaded right away so the network comes back without a reboot.
 
-```bash
-sudo sed -i '/^yt6801$/d' /etc/modules
-sudo modprobe -r yt6801
-```
+It refuses to remove the driver when your ethernet port depends on it (the port runs on the TUXEDO module and the kernel has no driver of its own), because that would cut the network immediately and after every reboot.
+
+| Option | Effect |
+|--------|--------|
+| `--keep-driver` | Only remove the auto-installer; keep the TUXEDO driver and `/etc/modules` entry (the pre-1.1 behaviour). |
+| `--force` | Remove the driver even if the ethernet port depends on it. |
 
 ## Updating the Driver
 
