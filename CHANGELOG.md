@@ -7,6 +7,21 @@ from the Conventional Commit titles of the merged pull requests.
 
 ## [1.1.0](https://github.com/finallyjay/yt6801-auto-installer/compare/v1.0.0...v1.1.0) (2026-11-05)
 
+### Highlights
+
+* **One-line install:** `curl -fsSL https://yt6801.finallyjay.dev/install.sh | sudo bash` (or the same `install.sh` from the latest GitHub release). It downloads its own release, verifies it against `SHA256SUMS`, shows what it will do and asks before changing anything. For machines with no other way online, every release also ships an offline tarball.
+* **Linux 7.0 aware:** kernels with the in-tree `dwmac-motorcomm` driver are detected (a bound driver, or a module or built-in alias matching the controller's `modalias`). The installer and the boot service then do nothing, and never reboot over a missing TUXEDO module.
+* **Complete uninstall:** `uninstall.sh` purges the driver package, including one left half-installed by a failed DKMS build. It also removes the `/etc/modules` entry and loads the kernel's own driver when there is one. It refuses to cut the network when the ethernet port depends on the TUXEDO driver; only `--force` overrides that. It works through `curl` too, or offline from `/opt/yt6801-auto-installer/uninstall.sh`.
+* **Automated releases:** versioning and changelog come from release-please. CI builds reproducible, checksummed release assets and publishes them.
+
+### Also in this release
+
+* Code of Conduct, CONTRIBUTING guide, security policy, and issue and pull request templates ([#5](https://github.com/finallyjay/yt6801-auto-installer/issues/5)–[#9](https://github.com/finallyjay/yt6801-auto-installer/issues/9))
+* Dependabot for GitHub Actions; `actions/checkout` bumped to v7 ([#10](https://github.com/finallyjay/yt6801-auto-installer/issues/10), [#12](https://github.com/finallyjay/yt6801-auto-installer/issues/12))
+* The boot scripts log to the journal (`journalctl -u yt6801-reinstall.service`) instead of an unrotated file in `/opt` ([#24](https://github.com/finallyjay/yt6801-auto-installer/issues/24))
+* Every script runs under `set -euo pipefail` ([#23](https://github.com/finallyjay/yt6801-auto-installer/issues/23))
+* bats test suite and shfmt formatting check in CI ([#20](https://github.com/finallyjay/yt6801-auto-installer/issues/20), [#21](https://github.com/finallyjay/yt6801-auto-installer/issues/21))
+* Security: least-privilege `permissions:` in the ShellCheck workflow, resolving a code scanning alert ([#11](https://github.com/finallyjay/yt6801-auto-installer/issues/11))
 
 ### Features
 
