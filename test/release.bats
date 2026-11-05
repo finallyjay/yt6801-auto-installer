@@ -31,7 +31,7 @@ sha256_check() {
     (cd "$OUT" && sha256_check SHA256SUMS)
 }
 
-@test "build-release.sh ships a versioned folder with stamped scripts and notes" {
+@test "build-release.sh ships a versioned folder with stamped scripts" {
     run tar -tzf "$OUT/yt6801-auto-installer-9.8.7.tar.gz"
     [ "$status" -eq 0 ]
     for f in install.sh setup.sh uninstall.sh install_yt6801_if_needed.sh check_yt6801_and_reboot.sh \
@@ -47,9 +47,6 @@ sha256_check() {
     tar -xzf "$OUT/yt6801-auto-installer-9.8.7.tar.gz" -C "$BATS_TEST_TMPDIR"
     grep -q '^YT6801_RELEASE_VERSION="9.8.7"' "$BATS_TEST_TMPDIR/yt6801-auto-installer-9.8.7/install.sh"
     [ -x "$BATS_TEST_TMPDIR/yt6801-auto-installer-9.8.7/install.sh" ]
-
-    grep -q "Something new" "$OUT/release-notes.md"
-    [ "$(grep -c "Old entry" "$OUT/release-notes.md" || true)" -eq 0 ]
 }
 
 @test "build-release.sh refuses a bad version, tag or CHANGELOG" {

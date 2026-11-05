@@ -150,7 +150,7 @@ fake_release_version() {
     {
         echo "# Changelog"
         echo
-        echo "## [$2] - 2030-01-01"
+        echo "## [$2](https://github.com/finallyjay/yt6801-auto-installer/compare/v1.0.0...v$2) (2030-01-01)"
         echo
         echo "### Added"
         echo "- Something new"

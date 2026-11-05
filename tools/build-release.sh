@@ -8,7 +8,6 @@ set -euo pipefail
 #                                           releases/latest/download/... works
 #   install.sh, uninstall.sh                standalone copies for `curl | bash`
 #   SHA256SUMS                              checksums of all the above
-#   release-notes.md                        the CHANGELOG section for <version>
 #
 # Every shipped script that declares `YT6801_RELEASE_VERSION=""` gets the
 # version stamped in, so a script fetched from a release only ever downloads
@@ -56,12 +55,14 @@ fail() {
 FILE_VERSION="$(tr -d '[:space:]' <"$REPO_ROOT/VERSION")"
 [ "$FILE_VERSION" = "$VERSION" ] || fail "VERSION file says '$FILE_VERSION', not '$VERSION'"
 
-NOTES="$(awk -v v="$VERSION" '
+# release-please writes this section in the release PR; a tag without it
+# means the changelog and the code do not match.
+SECTION="$(awk -v v="$VERSION" '
     index($0, "## [" v "]") == 1 { found = 1; next }
     found && /^## \[/ { exit }
     found { print }
 ' "$REPO_ROOT/CHANGELOG.md")"
-[ -n "$(echo "$NOTES" | tr -d '[:space:]')" ] || fail "CHANGELOG.md has no '## [$VERSION]' section"
+[ -n "$(echo "$SECTION" | tr -d '[:space:]')" ] || fail "CHANGELOG.md has no '## [$VERSION]' section"
 
 sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
@@ -116,8 +117,6 @@ cp "$OUT_DIR/$TARBALL" "$OUT_DIR/$NAME.tar.gz"
 for f in "${STANDALONE_SCRIPTS[@]}"; do
     cp "$STAGE/$f" "$OUT_DIR/$f"
 done
-
-echo "$NOTES" >"$OUT_DIR/release-notes.md"
 
 (
     cd "$OUT_DIR"

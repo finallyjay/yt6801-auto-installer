@@ -85,19 +85,24 @@ Before requesting review, please confirm:
 
 ## Releasing
 
-Releases are built and published by `.github/workflows/release.yml` when a
-`vX.Y.Z` tag is pushed:
+Releases are automated with [release-please](https://github.com/googleapis/release-please)
+(`.github/workflows/release.yml`):
 
-1. In a PR, set `VERSION` to `X.Y.Z` and turn the `[Unreleased]` section of
-   `CHANGELOG.md` into `## [X.Y.Z] - YYYY-MM-DD` (the workflow refuses a tag
-   that does not match both).
-2. After merging it, tag that commit on `main` and push the tag:
-   `git tag vX.Y.Z && git push origin vX.Y.Z`.
+1. Give every pull request a [Conventional Commits](https://www.conventionalcommits.org/)
+   title (`feat: …`, `fix: …`, `docs: …`). PRs are squash-merged, so that title
+   becomes the commit on `main`: `feat` bumps the minor version, `fix` the
+   patch, and `feat!`/`BREAKING CHANGE` the major.
+2. release-please keeps a release PR open that bumps `VERSION`, the README
+   badge and `CHANGELOG.md`. Edit its changelog text if needed, then merge it.
+3. Merging it tags `vX.Y.Z` and publishes the GitHub release; the same
+   workflow then runs the tests, builds the assets with
+   `tools/build-release.sh` (try it locally with
+   `tools/build-release.sh X.Y.Z /tmp/dist`), checks their SHA256 sums and
+   uploads them.
 
-The workflow runs the tests, builds the assets with
-`tools/build-release.sh` (try it locally with
-`tools/build-release.sh X.Y.Z /tmp/dist`), checks their SHA256 sums and
-creates the release with the CHANGELOG section as notes.
+Workflows do not run on pull requests opened by GitHub Actions, so the
+release PR shows no checks: its changes are only the version and the
+changelog, and the release job runs the full test suite before uploading.
 
 ## License
 
