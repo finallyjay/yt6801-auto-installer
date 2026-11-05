@@ -20,9 +20,8 @@ jobs:
     permissions:
       contents: write # create the release and upload its assets
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+      # Pinned by SHA: this job can write releases.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Bats
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # 4.0.0
@@ -50,7 +49,6 @@ jobs:
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \
             --notes-file dist/release-notes.md \
-            dist/yt6801-auto-installer-*.tar.gz \
-            dist/yt6801-auto-installer.tar.gz \
+            dist/*.tar.gz \
             dist/*.sh \
             dist/SHA256SUMS

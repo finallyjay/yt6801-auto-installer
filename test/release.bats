@@ -1,40 +1,32 @@
 #!/usr/bin/env bats
 #
-# Tests for tools/build-release.sh. They build into a temporary directory
-# from a temporary copy of the repo, so the real VERSION/CHANGELOG are only
-# read, never modified.
+# Tests for tools/build-release.sh. The release is built once per file, from
+# a temporary copy of the repo with a fake version, so the real VERSION and
+# CHANGELOG are never touched.
 
-setup() {
-    REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-    SANDBOX="$(mktemp -d)"
-    COPY="$SANDBOX/repo"
-    OUT="$SANDBOX/dist"
-    mkdir -p "$COPY"
-    # Copy the tracked files only (no .git, no local leftovers).
-    (cd "$REPO_ROOT" && git ls-files -z | xargs -0 -I{} cp -R --parents {} "$COPY/" 2>/dev/null) ||
-        (cd "$REPO_ROOT" && git ls-files | while IFS= read -r f; do
-            mkdir -p "$COPY/$(dirname "$f")"
-            cp "$f" "$COPY/$f"
-        done)
-    echo "9.8.7" >"$COPY/VERSION"
-    {
-        echo "# Changelog"
-        echo
-        echo "## [9.8.7] - 2030-01-01"
-        echo
-        echo "### Added"
-        echo "- Something new"
-        echo
-        echo "## [1.0.0] - 2026-03-30"
-        echo
-        echo "- Old entry"
-    } >"$COPY/CHANGELOG.md"
-    # A shipped script with the version placeholder, to check stamping.
-    printf '#!/bin/bash\nYT6801_RELEASE_VERSION=""\n' >"$COPY/uninstall.sh"
+copy_repo() {
+    local dest="$1" f
+    mkdir -p "$dest"
+    (cd "$REPO_ROOT" && git ls-files --cached --others --exclude-standard) | while IFS= read -r f; do
+        mkdir -p "$dest/$(dirname "$f")"
+        cp "$REPO_ROOT/$f" "$dest/$f"
+    done
 }
 
-teardown() {
-    rm -rf "$SANDBOX"
+fake_release_version() {
+    echo "$2" >"$1/VERSION"
+    printf '# Changelog\n\n## [%s] - 2030-01-01\n\n### Added\n- Something new\n\n## [1.0.0] - 2026-03-30\n\n- Old entry\n' \
+        "$2" >"$1/CHANGELOG.md"
+    # A shipped script with the version placeholder, to check stamping.
+    printf '#!/bin/bash\nYT6801_RELEASE_VERSION=""\n' >"$1/uninstall.sh"
+}
+
+setup_file() {
+    export REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+    export COPY="$BATS_FILE_TMPDIR/repo" OUT="$BATS_FILE_TMPDIR/dist"
+    copy_repo "$COPY"
+    fake_release_version "$COPY" 9.8.7
+    "$COPY/tools/build-release.sh" v9.8.7 "$OUT" >/dev/null
 }
 
 sha256_check() {
@@ -46,21 +38,13 @@ sha256_check() {
 }
 
 @test "build-release.sh builds every asset with valid checksums" {
-    run "$COPY/tools/build-release.sh" v9.8.7 "$OUT"
-
-    [ "$status" -eq 0 ]
     [ -f "$OUT/yt6801-auto-installer-9.8.7.tar.gz" ]
-    [ -f "$OUT/yt6801-auto-installer.tar.gz" ]
     [ -f "$OUT/uninstall.sh" ]
-    [ -f "$OUT/SHA256SUMS" ]
     cmp "$OUT/yt6801-auto-installer-9.8.7.tar.gz" "$OUT/yt6801-auto-installer.tar.gz"
     (cd "$OUT" && sha256_check SHA256SUMS)
 }
 
-@test "build-release.sh ships the scripts, unit and driver package in a versioned folder" {
-    run "$COPY/tools/build-release.sh" 9.8.7 "$OUT"
-    [ "$status" -eq 0 ]
-
+@test "build-release.sh ships a versioned folder with stamped scripts and notes" {
     run tar -tzf "$OUT/yt6801-auto-installer-9.8.7.tar.gz"
     [ "$status" -eq 0 ]
     for f in setup.sh uninstall.sh install_yt6801_if_needed.sh check_yt6801_and_reboot.sh \
@@ -68,49 +52,47 @@ sha256_check() {
         [[ "$output" == *"yt6801-auto-installer-9.8.7/$f"* ]]
     done
     [[ "$output" == *"yt6801-auto-installer-9.8.7/deb/tuxedo-yt6801_"*".deb"* ]]
-    # Nothing outside the versioned top-level folder, no tests or tooling.
     [[ "$output" != *"test/"* ]]
     [[ "$output" != *"tools/"* ]]
-}
-
-@test "build-release.sh stamps the release version into shipped scripts" {
-    run "$COPY/tools/build-release.sh" 9.8.7 "$OUT"
-    [ "$status" -eq 0 ]
 
     grep -qx 'YT6801_RELEASE_VERSION="9.8.7"' "$OUT/uninstall.sh"
-    tar -xzf "$OUT/yt6801-auto-installer-9.8.7.tar.gz" -C "$SANDBOX"
-    grep -qx 'YT6801_RELEASE_VERSION="9.8.7"' "$SANDBOX/yt6801-auto-installer-9.8.7/uninstall.sh"
-    [ -x "$SANDBOX/yt6801-auto-installer-9.8.7/uninstall.sh" ]
-}
-
-@test "build-release.sh writes the CHANGELOG section as release notes" {
-    run "$COPY/tools/build-release.sh" 9.8.7 "$OUT"
-    [ "$status" -eq 0 ]
+    tar -xzf "$OUT/yt6801-auto-installer-9.8.7.tar.gz" -C "$BATS_TEST_TMPDIR"
+    grep -qx 'YT6801_RELEASE_VERSION="9.8.7"' "$BATS_TEST_TMPDIR/yt6801-auto-installer-9.8.7/uninstall.sh"
+    [ -x "$BATS_TEST_TMPDIR/yt6801-auto-installer-9.8.7/uninstall.sh" ]
 
     grep -q "Something new" "$OUT/release-notes.md"
     [ "$(grep -c "Old entry" "$OUT/release-notes.md" || true)" -eq 0 ]
 }
 
-@test "build-release.sh refuses a tag that does not match VERSION" {
-    run "$COPY/tools/build-release.sh" 9.8.8 "$OUT"
+@test "build-release.sh refuses a bad version, tag or CHANGELOG" {
+    local copy="$BATS_TEST_TMPDIR/repo" out="$BATS_TEST_TMPDIR/dist"
+    copy_repo "$copy"
+    fake_release_version "$copy" 9.8.7
 
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"VERSION file says '9.8.7', not '9.8.8'"* ]]
-    [ ! -e "$OUT/SHA256SUMS" ]
-}
-
-@test "build-release.sh refuses a version without a CHANGELOG section" {
-    echo "9.9.9" >"$COPY/VERSION"
-
-    run "$COPY/tools/build-release.sh" 9.9.9 "$OUT"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"no '## [9.9.9]' section"* ]]
-}
-
-@test "build-release.sh rejects a malformed version" {
-    run "$COPY/tools/build-release.sh" latest "$OUT"
-
+    run "$copy/tools/build-release.sh" latest "$out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"is not a X.Y.Z version"* ]]
+
+    run "$copy/tools/build-release.sh" 9.8.8 "$out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"VERSION file says '9.8.7', not '9.8.8'"* ]]
+
+    echo "9.9.9" >"$copy/VERSION"
+    run "$copy/tools/build-release.sh" 9.9.9 "$out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no '## [9.9.9]' section"* ]]
+
+    [ ! -e "$out/SHA256SUMS" ]
+}
+
+@test "build-release.sh fails instead of shipping a script it could not stamp" {
+    local copy="$BATS_TEST_TMPDIR/repo"
+    copy_repo "$copy"
+    fake_release_version "$copy" 9.8.7
+    printf "#!/bin/bash\nYT6801_RELEASE_VERSION=''\n" >"$copy/uninstall.sh"
+
+    run "$copy/tools/build-release.sh" 9.8.7 "$BATS_TEST_TMPDIR/dist"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"could not stamp the version into uninstall.sh"* ]]
 }
