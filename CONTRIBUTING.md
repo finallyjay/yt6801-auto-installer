@@ -35,15 +35,17 @@ git checkout -b my-change
 
 ## Running checks locally
 
-Before pushing, run ShellCheck on every shell script the same way CI does:
+Before pushing, run the same checks as CI:
 
 ```bash
-shellcheck *.sh
+shellcheck $(git ls-files '*.sh')
+shfmt -i 4 -d $(git ls-files '*.sh')
+bats test/
 ```
 
-The CI workflow at `.github/workflows/shellcheck.yml` runs this on every
-push and pull request targeting `main`. PRs that fail ShellCheck will not
-be merged.
+The CI workflow at `.github/workflows/shellcheck.yml` runs these on every
+push and pull request targeting `main`. PRs that fail them will not be
+merged.
 
 ## Testing changes
 
@@ -72,10 +74,26 @@ affects install, reinstall, or reboot behavior.
 
 Before requesting review, please confirm:
 
-- [ ] `shellcheck *.sh` passes locally
+- [ ] ShellCheck, shfmt and `bats test/` pass locally
 - [ ] The change is tested on at least one Debian-based distribution
 - [ ] README, CHANGELOG, or other docs are updated if behavior changes
 - [ ] The PR description explains *why* the change is needed
+
+## Releasing
+
+Releases are built and published by `.github/workflows/release.yml` when a
+`vX.Y.Z` tag is pushed:
+
+1. In a PR, set `VERSION` to `X.Y.Z` and turn the `[Unreleased]` section of
+   `CHANGELOG.md` into `## [X.Y.Z] - YYYY-MM-DD` (the workflow refuses a tag
+   that does not match both).
+2. After merging it, tag that commit on `main` and push the tag:
+   `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The workflow runs the tests, builds the assets with
+`tools/build-release.sh` (try it locally with
+`tools/build-release.sh X.Y.Z /tmp/dist`), checks their SHA256 sums and
+creates the release with the CHANGELOG section as notes.
 
 ## License
 

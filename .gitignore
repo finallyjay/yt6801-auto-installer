@@ -11,3 +11,6 @@
 *.swp
 *.swo
 *~
+
+# Release build output (tools/build-release.sh)
+dist/

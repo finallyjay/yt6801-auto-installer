@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pull request template (#9)
 - Dependabot configuration for GitHub Actions version updates
 - `uninstall.sh --keep-driver` to only remove the auto-installer, and `--force` to remove the driver even when the ethernet port depends on it
+- Release workflow: pushing a `vX.Y.Z` tag runs the tests and publishes a GitHub release with a reproducible tarball (also under a fixed name for `releases/latest/download/`), standalone scripts with the version stamped in, and `SHA256SUMS`. Built by `tools/build-release.sh`, with tests in `test/release.bats`
 
 ### Changed
 - `uninstall.sh` now removes the driver too: it purges `tuxedo-yt6801` (and with it the DKMS module), removes the `yt6801` line from `/etc/modules`, and loads the kernel's own driver right away when there is one. It refuses to do so when the ethernet port depends on the TUXEDO module, and waits for the dpkg lock instead of failing while unattended-upgrades runs
