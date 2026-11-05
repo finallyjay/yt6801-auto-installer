@@ -104,3 +104,110 @@ yt6801_native_driver() {
     fi
     return 1
 }
+
+# ---------------------------------------------------------------------------
+# Friendly terminal output for install.sh and uninstall.sh.
+#
+# Colours and symbols only when stdout is a terminal (and NO_COLOR is unset),
+# so logs and pipes get plain text. Questions are read from /dev/tty, since
+# under `curl ... | sudo bash` stdin is the script itself.
+# ---------------------------------------------------------------------------
+
+ui_init() {
+    UI_TTY=0
+    C_RESET="" C_BOLD="" C_DIM="" C_RED="" C_GREEN="" C_YELLOW="" C_BLUE=""
+    if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+        UI_TTY=1
+        C_RESET=$'\033[0m' C_BOLD=$'\033[1m' C_DIM=$'\033[2m'
+        C_RED=$'\033[31m' C_GREEN=$'\033[32m' C_YELLOW=$'\033[33m' C_BLUE=$'\033[34m'
+    fi
+    case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *UTF-8* | *utf8* | *UTF8* | *utf-8*)
+        S_OK="✔" S_ERR="✖" S_WARN="!" S_INFO="•" S_STEP="▸"
+        UI_SPINNER=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+        ;;
+    *)
+        S_OK="ok" S_ERR="x" S_WARN="!" S_INFO="-" S_STEP=">"
+        UI_SPINNER=("-" "\\" "|" "/")
+        ;;
+    esac
+}
+
+ui_banner() {
+    printf '\n%s%s%s %s%s%s\n' "$C_BOLD" "$1" "$C_RESET" "$C_DIM" "${2:-}" "$C_RESET"
+}
+
+ui_step() {
+    printf '\n%s%s%s %s%s%s\n' "$C_BLUE" "$S_STEP" "$C_RESET" "$C_BOLD" "$*" "$C_RESET"
+}
+
+ui_ok() { printf '  %s%s%s %s\n' "$C_GREEN" "$S_OK" "$C_RESET" "$*"; }
+ui_info() { printf '  %s%s%s %s\n' "$C_DIM" "$S_INFO" "$C_RESET" "$*"; }
+ui_warn() { printf '  %s%s%s %s\n' "$C_YELLOW" "$S_WARN" "$C_RESET" "$*"; }
+ui_err() { printf '  %s%s%s %s\n' "$C_RED" "$S_ERR" "$C_RESET" "$*" >&2; }
+
+# ui_run <message> <logfile> <command...>
+# Runs a command with its output appended to <logfile>, showing a spinner on
+# a terminal. On failure it prints the last lines of the log and fails.
+ui_run() {
+    local msg="$1" log="$2" pid rc=0 i=0
+    shift 2
+    printf '\n=== %s\n' "$msg" >>"$log"
+    if [ "$UI_TTY" -eq 1 ]; then
+        "$@" >>"$log" 2>&1 &
+        pid=$!
+        while kill -0 "$pid" 2>/dev/null; do
+            printf '\r  %s%s%s %s' "$C_BLUE" "${UI_SPINNER[i++ % ${#UI_SPINNER[@]}]}" "$C_RESET" "$msg"
+            sleep 0.1
+        done
+        wait "$pid" || rc=$?
+        printf '\r\033[K'
+    else
+        "$@" >>"$log" 2>&1 || rc=$?
+    fi
+    if [ "$rc" -eq 0 ]; then
+        ui_ok "$msg"
+    else
+        ui_err "$msg (failed)"
+        tail -n 15 "$log" | sed 's/^/      /' >&2
+        ui_info "Full log: $log"
+    fi
+    return "$rc"
+}
+
+# ui_confirm <question> <default: y|n>
+# Asks on the terminal. Without one (or with YT6801_ASSUME_YES=1) it takes
+# the default answer, so unattended runs never hang.
+ui_confirm() {
+    local question="$1" default="$2" hint answer
+    if [ "${YT6801_ASSUME_YES:-0}" = "1" ]; then
+        return 0
+    fi
+    if [ "$default" = "y" ]; then hint="[Y/n]"; else hint="[y/N]"; fi
+    if ! { : </dev/tty; } 2>/dev/null; then
+        [ "$default" = "y" ]
+        return
+    fi
+    printf '\n  %s %s ' "$question" "$hint"
+    read -r answer </dev/tty || answer=""
+    case "${answer:-$default}" in
+    [yY] | [yY][eE][sS] | [sS] | [sS][iI] | [sS][íÍ]) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+
+# Prints "<iface> (<state>[, <speed> Mb/s])" for the first YT6801, if any.
+yt6801_link_summary() {
+    local dev iface="" state speed="" path
+    dev="$(yt6801_devices | head -n 1)"
+    [ -n "$dev" ] && [ -d "$dev/net" ] || return 0
+    for path in "$dev/net"/*; do
+        [ -e "$path" ] && iface="$(basename "$path")" && break
+    done
+    [ -n "$iface" ] || return 0
+    state="$(cat "$dev/net/$iface/operstate" 2>/dev/null || echo unknown)"
+    if [ "$state" = "up" ]; then
+        speed="$(cat "$dev/net/$iface/speed" 2>/dev/null || true)"
+    fi
+    echo "$iface ($state${speed:+, $speed Mb/s})"
+}

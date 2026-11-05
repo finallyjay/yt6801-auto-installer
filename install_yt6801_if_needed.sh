@@ -14,6 +14,8 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG_NAME="tuxedo-yt6801"
+# Test-only override (see test/smoke.bats), like YT6801_SKIP_ROOT_CHECK.
+ETC_MODULES="${YT6801_ETC_MODULES:-/etc/modules}"
 
 # shellcheck source=yt6801-common.sh
 . "$SCRIPT_DIR/yt6801-common.sh"
@@ -99,11 +101,11 @@ echo "$(date): Checking lsmod..."
 lsmod | grep yt6801 || true
 
 # Add module to /etc/modules if not present
-if ! grep -qxF 'yt6801' /etc/modules; then
-    echo "$(date): Adding 'yt6801' to /etc/modules"
-    echo 'yt6801' >>/etc/modules
+if ! grep -qxF 'yt6801' "$ETC_MODULES" 2>/dev/null; then
+    echo "$(date): Adding 'yt6801' to $ETC_MODULES"
+    echo 'yt6801' >>"$ETC_MODULES"
 else
-    echo "$(date): 'yt6801' already present in /etc/modules"
+    echo "$(date): 'yt6801' already present in $ETC_MODULES"
 fi
 
 # Second call to depmod just in case
